@@ -1,0 +1,5 @@
+### OAuth 2.0 service configuration file
+
+# Bind address to use for the HTTP service
+# bind-address = "127.0.0.1:8080"
+
