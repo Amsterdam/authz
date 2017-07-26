@@ -1,3 +1,4 @@
+// Command goauth2 runs Datapunt Amsterdam's OAuth 2 (RFC 6749) service.
 package main
 
 import (
@@ -6,6 +7,8 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/DatapuntAmsterdam/goauth2/service"
 )
 
 func main() {
@@ -19,7 +22,8 @@ func main() {
 // runService is starts the service and shuts it down when sigterm or sigint
 // is received.
 func runService(bindAddress *string) {
-	service := NewService(bindAddress)
+	oauth2 := service.NewOAuth2()
+	service := service.NewService(bindAddress, oauth2.Handler)
 	if err := service.Open(); err != nil {
 		log.Fatal(err)
 	}

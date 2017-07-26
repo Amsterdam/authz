@@ -1,4 +1,4 @@
-package main
+package service
 
 import (
 	"fmt"
@@ -17,11 +17,11 @@ type Service struct {
 }
 
 // NewService returns a new instance of Service.
-func NewService(bindAddress *string) *Service {
+func NewService(bindAddress *string, handler *Handler) *Service {
 	s := &Service{
 		addr:    bindAddress,
 		Err:     make(chan error),
-		handler: NewHandler(),
+		handler: handler,
 	}
 	return s
 }

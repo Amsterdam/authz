@@ -1,4 +1,4 @@
-package main
+package service
 
 import (
 	"net/http"
@@ -19,9 +19,6 @@ type Resource struct {
 // Handler represents an HTTP request handler.
 type Handler struct {
 	mux *pat.PatternServeMux
-	// IdPRegistry IdPRegistry
-	// ClientRegistry ClientRegistry
-	// ScopesMap ScopeMap
 }
 
 // NewHandler returns a new instance of handler with routes.
@@ -29,15 +26,6 @@ func NewHandler() *Handler {
 	h := &Handler{
 		mux: pat.New(),
 	}
-
-	h.addResources(
-		Resource{
-			"authorizationrequest", "/authorize",
-			methodHandler{
-				"GET": h.authorizationRequest,
-			},
-		},
-	)
 	return h
 }
 
@@ -50,11 +38,6 @@ func (h *Handler) addResources(resources ...Resource) {
 			h.mux.Add(method, r.Pattern, handler)
 		}
 	}
-}
-
-// authorizationRequest handles an OAuth 2.0 authorization request
-func (h *Handler) authorizationRequest(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNoContent)
 }
 
 // ServeHTTP responds to HTTP request to the handler.
