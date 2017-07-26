@@ -13,7 +13,7 @@ import (
 
 func main() {
 	var bindAddress = flag.String(
-		"bind", "127.0.0.1:8080", "Bind the service to this address.")
+		"bind", "0.0.0.0:8080", "Bind the service to this address.")
 	flag.Parse()
 	runService(bindAddress)
 	log.Print("Service stopped")

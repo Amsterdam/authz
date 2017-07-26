@@ -1,0 +1,7 @@
+# ignore all...
+*
+
+# except a few
+!*.go
+!service
+!Godeps
