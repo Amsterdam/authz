@@ -18,18 +18,16 @@ type Resource struct {
 
 // Handler represents an HTTP request handler.
 type Handler struct {
-	mux    *pat.PatternServeMux
-	Config *Config
+	mux *pat.PatternServeMux
 	// IdPRegistry IdPRegistry
 	// ClientRegistry ClientRegistry
 	// ScopesMap ScopeMap
 }
 
 // NewHandler returns a new instance of handler with routes.
-func NewHandler(c *Config) *Handler {
+func NewHandler() *Handler {
 	h := &Handler{
-		mux:    pat.New(),
-		Config: c,
+		mux: pat.New(),
 	}
 
 	h.addResources(

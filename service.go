@@ -11,25 +11,25 @@ import (
 // Service manages the listener and handler for an HTTP endpoint.
 type Service struct {
 	ln      net.Listener
-	addr    string
+	addr    *string
 	Err     chan error
 	handler *Handler
 }
 
 // NewService returns a new instance of Service.
-func NewService(c *Config) *Service {
+func NewService(bindAddress *string) *Service {
 	s := &Service{
-		addr:    c.BindAddress,
+		addr:    bindAddress,
 		Err:     make(chan error),
-		handler: NewHandler(c),
+		handler: NewHandler(),
 	}
 	return s
 }
 
 // Open starts the service.
 func (s *Service) Open() error {
-	log.Print("Starting HTTP service")
-	listener, err := net.Listen("tcp", s.addr)
+	log.Print("Starting OAuth 2.0 service")
+	listener, err := net.Listen("tcp", *s.addr)
 	if err != nil {
 		return err
 	}

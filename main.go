@@ -9,16 +9,17 @@ import (
 )
 
 func main() {
-	var configPath string
-	flag.StringVar(&configPath, "config", "", "Path to the configuration file")
+	var bindAddress = flag.String(
+		"bind", "127.0.0.1:8080", "Bind the service to this address.")
 	flag.Parse()
-	config := config(configPath)
-	runService(config)
+	runService(bindAddress)
 	log.Print("Service stopped")
 }
 
-func runService(config *Config) {
-	service := NewService(config)
+// runService is starts the service and shuts it down when sigterm or sigint
+// is received.
+func runService(bindAddress *string) {
+	service := NewService(bindAddress)
 	if err := service.Open(); err != nil {
 		log.Fatal(err)
 	}
@@ -37,16 +38,4 @@ func runService(config *Config) {
 			return
 		}
 	}
-}
-
-func config(configPath string) *Config {
-	config := NewConfig()
-	if configPath == "" {
-		log.Print("No config given, using default configuration file")
-	} else {
-		if err := config.FromTomlFile(configPath); err != nil {
-			log.Fatal(err)
-		}
-	}
-	return config
 }
