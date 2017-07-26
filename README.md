@@ -11,13 +11,15 @@ Locally:
 ```
 $ go get github.com/DatapuntAmsterdam/goauth2
 $ ./goauth2
+$ curl http://localhost:8080/authorize?...
 ```
 
 Using Docker:
 
 ```
 $ docker build -t goauth2 .
-$ docker run goauth2 --help
+$ docker run --rm -p 8080:8080 goauth2
+$ curl http://localhost:8080/authorize?...
 ```
 
 ## Contribute
