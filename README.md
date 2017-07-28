@@ -18,7 +18,7 @@ Using Docker:
 
 ```
 $ docker build -t goauth2 .
-$ docker run --rm -p 8080:8080 goauth2
+$ docker run --rm --expose 8080 -p 8080:8080 goauth2 --bind :8080
 $ curl http://localhost:8080/authorize?...
 ```
 
