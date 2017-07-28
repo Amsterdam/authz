@@ -1,3 +1,6 @@
+# We sadly need this in due to a bug in the Jenkins Docker Build Step plugin.
+FROM scratch
+
 FROM golang:latest as builder
   WORKDIR /go/src/github.com/DatapuntAmsterdam/goauth2
   ADD . /go/src/github.com/DatapuntAmsterdam/goauth2
