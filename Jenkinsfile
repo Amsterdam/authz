@@ -28,7 +28,7 @@ node {
 
     stage('Test') {
         tryStep "test", {
-            sh "docker build -f Dockerfile_test ." 
+            sh "docker build --no-cache --pull --rm -f Dockerfile_test ." 
         }
     }
 
