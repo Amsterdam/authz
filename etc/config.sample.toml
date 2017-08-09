@@ -1,0 +1,21 @@
+### OAuth 2.0 service configuration file
+
+# Bind address to use for the HTTP service
+# bind-address = ":8080"
+# bind-address = "0.0.0.0:8080"  # identical
+
+
+# Identity providers, schemaless config
+[idp]
+
+  [idp.datapunt]
+  url = "https://api.data.amsterdam.nl/auth/idp/login"
+
+
+# OAuth 2.0 clients. Require client-id and redirects. client-secret optional.
+[client]
+
+  [client.citydata]
+  client-id = "citydata-data.amsterdam.nl"
+  redirects = ["http://localhost:8080/"]
+

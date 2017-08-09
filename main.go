@@ -12,18 +12,21 @@ import (
 )
 
 func main() {
-	var bindAddress = flag.String(
-		"bind", "0.0.0.0:8080", "Bind the service to this address.")
+	var configPath = flag.String("config", "", "Path to a configuration file.")
 	flag.Parse()
-	runService(bindAddress)
+	config, err := NewConfig(*configPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	runService(config)
 	log.Print("Service stopped")
 }
 
 // runService is starts the service and shuts it down when sigterm or sigint
 // is received.
-func runService(bindAddress *string) {
+func runService(config *Config) {
 	oauth2 := service.NewOAuth2()
-	service := service.NewService(bindAddress, oauth2.Handler)
+	service := service.NewService(config.BindAddress, oauth2.Handler)
 	if err := service.Open(); err != nil {
 		log.Fatal(err)
 	}

@@ -12,7 +12,7 @@ type IdP interface {
 
 	// AuthnRedirect(...) returns a URL and optionally, a key and value that
 	// will be stored for future retrieval.
-	AuthnRedirect(opaqueToken string) (url.URL, []byte, []byte)
+	AuthnRedirect(callbackURL url.URL, opaqueToken string) (url.URL, []byte, []byte)
 
 	// UserAttributes returns attributes as a json string in a byte slice.
 	UserAttributes(r *http.Request) ([]byte, error)
@@ -20,15 +20,18 @@ type IdP interface {
 
 func IdPMap() map[string]IdP {
 	return map[string]IdP{
-		"datapunt": DatapuntIdP{"", ""},
+		"datapunt": DatapuntIdP{""},
 	}
 }
 
 type DatapuntIdP struct {
-	BaseURL         string
-	BaseCallbackURI string
+	BaseURL string
 }
 
-// func (d *DatapuntIdP) AuthnRedirect(opaqueToken string) (url.URL, []byte, []byte) {
-//
-// }
+func (d DatapuntIdP) AuthnRedirect(callbackURL url.URL, opaqueToken string) (redirURL url.URL, key []byte, value []byte) {
+	return
+}
+
+func (d DatapuntIdP) UserAttributes(r *http.Request) (uAttrs []byte, err error) {
+	return
+}
