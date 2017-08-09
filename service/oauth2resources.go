@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+
+	"github.com/DatapuntAmsterdam/goauth2/idp"
 )
 
 // Supported grant types
@@ -33,7 +35,7 @@ type OAuth2Response struct {
 // Resource handlers for the OAuth 2.0 service.
 type OAuth2 struct {
 	Handler *Handler
-	// IdPRegistry IdPRegistry
+	idPs    map[string]idp.IdP
 	// ClientRegistry ClientRegistry
 	// ScopesMap ScopeMap
 }
@@ -44,6 +46,7 @@ type OAuth2 struct {
 func NewOAuth2() *OAuth2 {
 	oauth2 := &OAuth2{
 		Handler: NewHandler(),
+		idPs:    idp.IdPMap(),
 	}
 
 	oauth2.Handler.addResources(
@@ -59,7 +62,7 @@ func NewOAuth2() *OAuth2 {
 
 // authorizationRequest handles an OAuth 2.0 authorization request.
 func (h *OAuth2) authorizationRequest(w http.ResponseWriter, r *http.Request) {
-	authzReq := NewAuthzRequest(r)
+	authzReq := AuthzRequest{req: r}
 	response := authzReq.Response()
 	headers := w.Header()
 	for header, values := range response.Header {
@@ -79,8 +82,6 @@ type AuthzRequest struct {
 	scope       []string
 	state       string
 }
-
-func NewAuthzRequest(req *http.Request) *AuthzRequest { return &AuthzRequest{req: req} }
 
 // Response generates a response that is appropriate for this authorization request.
 func (r *AuthzRequest) Response() *OAuth2Response {
