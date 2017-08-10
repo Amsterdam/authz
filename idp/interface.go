@@ -3,7 +3,6 @@
 package idp
 
 import (
-	"errors"
 	"log"
 	"net/http"
 	"net/url"
@@ -22,6 +21,7 @@ type IdP interface {
 	UserAttributes(r *http.Request) ([]byte, error)
 }
 
+// IdPMap returns a map with instances of all configured IdP's.
 func IdPMap(config *config.Config) (map[string]IdP, error) {
 	var err error
 	idpMap := make(map[string]IdP)
@@ -38,25 +38,4 @@ func IdPMap(config *config.Config) (map[string]IdP, error) {
 		}
 	}
 	return idpMap, nil
-}
-
-type DatapuntIdP struct {
-	BaseURL string
-}
-
-func NewDatapuntIdP(config interface{}) (*DatapuntIdP, error) {
-	if dpConfig, ok := config.(map[string]interface{}); ok {
-		if baseUrl, ok := dpConfig["url"].(string); ok {
-			return &DatapuntIdP{baseUrl}, nil
-		}
-	}
-	return nil, errors.New("Invalid Datapunt IdP configuration")
-}
-
-func (d *DatapuntIdP) AuthnRedirect(callbackURL url.URL, opaqueToken string) (redirURL url.URL, key []byte, value []byte) {
-	return
-}
-
-func (d *DatapuntIdP) UserAttributes(r *http.Request) (uAttrs []byte, err error) {
-	return
 }
