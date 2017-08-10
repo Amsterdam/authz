@@ -10,7 +10,6 @@ url = "https://api.data.amsterdam.nl/auth/idp/login"
 
 
 # OAuth 2.0 clients. Require client-id and redirects. client-secret optional.
-[client.citydata]
-client-id = "citydata-data.amsterdam.nl"
+[client."citydata-data.amsterdam.nl"]
 redirects = ["http://localhost:8080/"]
 

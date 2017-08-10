@@ -36,22 +36,23 @@ type OAuth2Response struct {
 // Resource handlers for the OAuth 2.0 service.
 type OAuth2 struct {
 	Handler *Handler
-	idPs    map[string]idp.IdP
-	// ClientRegistry ClientRegistry
+	idps    map[string]idp.IdP
+	clients map[string]config.OAuth2Client
 	// ScopesMap ScopeMap
 }
 
 // OAuth 2.0 resources.
 //
 // NewOAuth2() creates a Handler and registers all its resources.
-func NewOAuth2(config *config.Config) (*OAuth2, error) {
-	idps, err := idp.IdPMap(config)
+func NewOAuth2(conf *config.Config) (*OAuth2, error) {
+	idps, err := idp.IdPMap(conf)
 	if err != nil {
 		return nil, err
 	}
 	oauth2 := &OAuth2{
 		Handler: NewHandler(),
-		idPs:    idps,
+		idps:    idps,
+		clients: conf.Client,
 	}
 
 	oauth2.Handler.addResources(
@@ -67,6 +68,35 @@ func NewOAuth2(config *config.Config) (*OAuth2, error) {
 
 // authorizationRequest handles an OAuth 2.0 authorization request.
 func (h *OAuth2) authorizationRequest(w http.ResponseWriter, r *http.Request) {
+
+	// First check whether client_id is present and valid
+	var client config.OAuth2Client
+	q := r.URL.Query()
+	if clientId, ok := q["client_id"]; ok {
+		if c, ok := h.clients[clientId[0]]; ok {
+			client = c
+		}
+	}
+	if len(client.Redirects) == 0 {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Must provide a valid client_id"))
+		return
+	}
+
+	// Now validate the redirect URI
+
+	// Now make sure idp_id is present and valid
+	var authnProvider idp.IdP
+	if idpId, ok := q["idp_id"]; ok {
+		if i, ok := h.idps[idpId[0]]; ok {
+			authnProvider = i
+		}
+	}
+	if authnProvider == nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Must provide an idp_id"))
+		return
+	}
 	authzReq := AuthzRequest{req: r}
 	response := authzReq.Response()
 	headers := w.Header()
