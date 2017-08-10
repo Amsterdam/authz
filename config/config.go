@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"io/ioutil"
@@ -14,14 +14,14 @@ const (
 
 // Config represents the configuration format for the server.
 type Config struct {
-	BindAddress string                   `toml:"bind-address"`
-	IdP         map[string][]interface{} `toml:"idp"`
-	Client      map[string]client
+	BindAddress string                 `toml:"bind-address"`
+	IdP         map[string]interface{} `toml:"idp"`
+	Client      map[string]client      `toml:"client"`
 }
 
 type client struct {
-	ClientId  string `toml:"client-id"`
-	Redirects []string
+	ClientId  string   `toml:"client-id"`
+	Redirects []string `toml:"redirects"`
 }
 
 // NewConfig returns an instance of Config with reasonable defaults.

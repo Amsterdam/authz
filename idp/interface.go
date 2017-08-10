@@ -3,8 +3,12 @@
 package idp
 
 import (
+	"errors"
+	"log"
 	"net/http"
 	"net/url"
+
+	"github.com/DatapuntAmsterdam/goauth2/config"
 )
 
 // The interface that needs to be implemented for identity providers.
@@ -18,20 +22,41 @@ type IdP interface {
 	UserAttributes(r *http.Request) ([]byte, error)
 }
 
-func IdPMap() map[string]IdP {
-	return map[string]IdP{
-		"datapunt": DatapuntIdP{""},
+func IdPMap(config *config.Config) (map[string]IdP, error) {
+	var err error
+	idpMap := make(map[string]IdP)
+	for idp, idpConfig := range config.IdP {
+		switch idp {
+		case "datapunt":
+			idpMap[idp], err = NewDatapuntIdP(idpConfig)
+			if err != nil {
+				return idpMap, err
+			}
+			log.Println("Added Datapunt IdP")
+		default:
+			log.Printf("WARNING: Unknown IdP in config: %s\n", idp)
+		}
 	}
+	return idpMap, nil
 }
 
 type DatapuntIdP struct {
 	BaseURL string
 }
 
-func (d DatapuntIdP) AuthnRedirect(callbackURL url.URL, opaqueToken string) (redirURL url.URL, key []byte, value []byte) {
+func NewDatapuntIdP(config interface{}) (*DatapuntIdP, error) {
+	if dpConfig, ok := config.(map[string]interface{}); ok {
+		if baseUrl, ok := dpConfig["url"].(string); ok {
+			return &DatapuntIdP{baseUrl}, nil
+		}
+	}
+	return nil, errors.New("Invalid Datapunt IdP configuration")
+}
+
+func (d *DatapuntIdP) AuthnRedirect(callbackURL url.URL, opaqueToken string) (redirURL url.URL, key []byte, value []byte) {
 	return
 }
 
-func (d DatapuntIdP) UserAttributes(r *http.Request) (uAttrs []byte, err error) {
+func (d *DatapuntIdP) UserAttributes(r *http.Request) (uAttrs []byte, err error) {
 	return
 }

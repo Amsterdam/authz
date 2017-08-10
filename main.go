@@ -8,13 +8,14 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/DatapuntAmsterdam/goauth2/config"
 	"github.com/DatapuntAmsterdam/goauth2/service"
 )
 
 func main() {
 	var configPath = flag.String("config", "", "Path to a configuration file.")
 	flag.Parse()
-	config, err := NewConfig(*configPath)
+	config, err := config.NewConfig(*configPath)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -24,8 +25,11 @@ func main() {
 
 // runService is starts the service and shuts it down when sigterm or sigint
 // is received.
-func runService(config *Config) {
-	oauth2 := service.NewOAuth2()
+func runService(config *config.Config) {
+	oauth2, err := service.NewOAuth2(config)
+	if err != nil {
+		log.Fatal(err)
+	}
 	service := service.NewService(config.BindAddress, oauth2.Handler)
 	if err := service.Open(); err != nil {
 		log.Fatal(err)

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/DatapuntAmsterdam/goauth2/config"
 	"github.com/DatapuntAmsterdam/goauth2/idp"
 )
 
@@ -43,10 +44,14 @@ type OAuth2 struct {
 // OAuth 2.0 resources.
 //
 // NewOAuth2() creates a Handler and registers all its resources.
-func NewOAuth2() *OAuth2 {
+func NewOAuth2(config *config.Config) (*OAuth2, error) {
+	idps, err := idp.IdPMap(config)
+	if err != nil {
+		return nil, err
+	}
 	oauth2 := &OAuth2{
 		Handler: NewHandler(),
-		idPs:    idp.IdPMap(),
+		idPs:    idps,
 	}
 
 	oauth2.Handler.addResources(
@@ -57,7 +62,7 @@ func NewOAuth2() *OAuth2 {
 			},
 		},
 	)
-	return oauth2
+	return oauth2, nil
 }
 
 // authorizationRequest handles an OAuth 2.0 authorization request.
