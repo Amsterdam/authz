@@ -4,4 +4,6 @@
 # except a few
 !*.go
 !service
+!idp
+!config
 !Godeps
