@@ -24,9 +24,9 @@ $ curl http://localhost:8080/authorize?...
 
 ## Contribute
 
-We use https://github.com/sparrc/gdm for dependency management.
+**Note** We choose to use [gdm](https://github.com/sparrc/gdm) to pin our dependencies so we have reproducible builds. `go get ./...` works just fine so you don't need to use gdm if you don't want to, but if you add dependencies please make sure to update Godeps (`gdm save`).
 
-This is how to grab the sources and install dependencies:
+This is how to grab the sources and install dependencies using gdm:
 
 ```
 $ mkdir -p $GOPATH/src/github.com/DatapuntAmsterdam/goauth2
