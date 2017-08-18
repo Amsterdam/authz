@@ -6,9 +6,9 @@
 
 # Redis connection params
 # [redis]
-# host = "localhost"
-# port = 6379
+# address = ":6379"
 # password = ""
+# expire_secs = 600
 
 
 # Identity providers, schemaless config. Comment out / remove the ones you don't need.

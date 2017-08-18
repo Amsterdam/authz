@@ -1,14 +1,19 @@
 package service
 
 import (
+	"bytes"
+	"encoding/gob"
 	"errors"
+	"fmt"
 	"log"
 	"math/rand"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/DatapuntAmsterdam/goauth2/config"
 	"github.com/DatapuntAmsterdam/goauth2/idp"
+	"github.com/garyburd/redigo/redis"
 )
 
 // Supported grant types & handlers
@@ -56,22 +61,56 @@ type OAuth2 struct {
 	idps    map[string]idp.IdP
 	clients map[string]config.OAuth2Client
 	// ScopesMap ScopeMap
+	redisPool       *redis.Pool
+	redisExpireSecs int
 }
 
 // OAuth 2.0 resources.
 //
 // NewOAuth2() creates a Handler and registers all its resources.
 func NewOAuth2(conf *config.Config) (*OAuth2, error) {
+	// Create a Redis connectionpool
+	pool := &redis.Pool{
+		MaxIdle:     3,
+		IdleTimeout: 240 * time.Second,
+		// Dial creates a connection and authenticates
+		Dial: func() (redis.Conn, error) {
+			c, err := redis.Dial("tcp", conf.Redis.Address)
+			if err != nil {
+				return nil, err
+			}
+			if conf.Redis.Password != "" {
+				if _, err := c.Do("AUTH", conf.Redis.Password); err != nil {
+					c.Close()
+					return nil, err
+				}
+			}
+			return c, nil
+		},
+		// Ping a connection to see whether it's still alive
+		// TODO: give more thought to semantics
+		TestOnBorrow: func(c redis.Conn, t time.Time) error {
+			if time.Since(t) < time.Minute {
+				return nil
+			}
+			_, err := c.Do("PING")
+			return err
+		},
+	}
+	// Create the IdP map
 	idps, err := idp.IdPMap(conf)
 	if err != nil {
 		return nil, err
 	}
+	// Create the OAuth 2.0 object
 	oauth2 := &OAuth2{
-		Handler: NewHandler(),
-		idps:    idps,
-		clients: conf.Client,
+		Handler:         NewHandler(),
+		idps:            idps,
+		clients:         conf.Client,
+		redisPool:       pool,
+		redisExpireSecs: conf.Redis.ExpireSecs,
 	}
-
+	// Add all resource handlers
 	oauth2.Handler.addResources(
 		Resource{
 			"authorizationrequest", "/authorize",
@@ -88,18 +127,31 @@ func (h OAuth2) authorizationRequest(w http.ResponseWriter, r *http.Request) {
 	// Create an authorization request
 	authzReq, err := h.NewAuthorizationRequest(r)
 	if err != nil {
-		log.Printf("Authz request error: %s", r)
+		log.Printf("Authz request error: %s -> %s", r.RequestURI, err)
 	} else {
-		log.Print("Cool, good authz request!")
-		// Store stuff
+		// Save data in Redis
+		var data bytes.Buffer
+		enc := gob.NewEncoder(&data)
+		err := enc.Encode(&authzReq.AuthorizationParams)
+		if err != nil {
+			authzReq.SetErrorResponse(ERRCODE_SERVER_ERROR, "server error")
+			log.Printf("Authz request error (problem encoding data): %s", err)
+		} else {
+			key := fmt.Sprintf("authzreq:%s", authzReq.Id)
+			value := data.String()
+			conn := h.redisPool.Get()
+			defer conn.Close()
+			if _, err := conn.Do("SET", key, value, "EX", h.redisExpireSecs); err != nil {
+				authzReq.SetErrorResponse(ERRCODE_SERVER_ERROR, "server error")
+				log.Printf("Authz request error (problem saving data in Redis): %s", err)
+			}
+		}
 	}
 	authzReq.Response.Write(w)
 }
 
 // AuthorizationParams are used throughout the authorization request sequence.
 type AuthorizationParams struct {
-	// An identifier to be used
-	Id string
 	// All authorization request params
 	ClientId     string
 	RedirectURI  string
@@ -110,6 +162,8 @@ type AuthorizationParams struct {
 
 // AuthorizationRequest handles an authorization request.
 type AuthorizationRequest struct {
+	// An identifier to be used
+	Id string
 	// Request query and response
 	query    url.Values
 	Response *AuthorizationResponse
@@ -140,7 +194,7 @@ func (h *OAuth2) NewAuthorizationRequest(r *http.Request) (*AuthorizationRequest
 		err = errors.New("client_id missing")
 	}
 	if err != nil {
-		authzReq.setBadRequest(err.Error())
+		authzReq.SetBadRequest(err.Error())
 		return authzReq, err
 	}
 
@@ -164,7 +218,7 @@ func (h *OAuth2) NewAuthorizationRequest(r *http.Request) (*AuthorizationRequest
 		err = errors.New("must provide a redirect_uri for this client_id")
 	}
 	if err != nil {
-		authzReq.setBadRequest(err.Error())
+		authzReq.SetBadRequest(err.Error())
 		return authzReq, err
 	}
 
@@ -179,7 +233,7 @@ func (h *OAuth2) NewAuthorizationRequest(r *http.Request) (*AuthorizationRequest
 		err = errors.New("idp_id missing")
 	}
 	if err != nil {
-		authzReq.setErrorResponse(ERRCODE_INVALID_REQUEST, err.Error())
+		authzReq.SetErrorResponse(ERRCODE_INVALID_REQUEST, err.Error())
 		return authzReq, err
 	}
 
@@ -189,12 +243,12 @@ func (h *OAuth2) NewAuthorizationRequest(r *http.Request) (*AuthorizationRequest
 			authzReq.ResponseType = responseType[0]
 		} else {
 			err = errors.New("response_type not supported")
-			authzReq.setErrorResponse(ERRCODE_UNSUPPORTED_RESPONSE_TYPE, err.Error())
+			authzReq.SetErrorResponse(ERRCODE_UNSUPPORTED_RESPONSE_TYPE, err.Error())
 			return authzReq, err
 		}
 	} else {
 		err = errors.New("response_type missing")
-		authzReq.setErrorResponse(ERRCODE_INVALID_REQUEST, err.Error())
+		authzReq.SetErrorResponse(ERRCODE_INVALID_REQUEST, err.Error())
 		return authzReq, err
 	}
 
@@ -209,7 +263,7 @@ func (h *OAuth2) NewAuthorizationRequest(r *http.Request) (*AuthorizationRequest
 		err = errors.New("state missing")
 	}
 	if err != nil {
-		authzReq.setErrorResponse(ERRCODE_INVALID_REQUEST, err.Error())
+		authzReq.SetErrorResponse(ERRCODE_INVALID_REQUEST, err.Error())
 		return authzReq, err
 	}
 
@@ -248,15 +302,15 @@ func (r *AuthorizationRequest) setIdpRedirectResponse() {
 	r.Response.header["Location"] = []string{authnRedir}
 }
 
-// setBadRequest sets a 404 Bad Request response.
-func (r *AuthorizationRequest) setBadRequest(body string) {
+// SetBadRequest sets a 404 Bad Request response.
+func (r *AuthorizationRequest) SetBadRequest(body string) {
 	r.Response.status = http.StatusBadRequest
 	r.Response.body = []byte(body)
 }
 
-// setErrorResponse sets a 303 See Other error response with
+// SetErrorResponse sets a 303 See Other error response with
 // error=[errorType]&error_description=[description] query params.
-func (r *AuthorizationRequest) setErrorResponse(errorType string, description string) {
+func (r *AuthorizationRequest) SetErrorResponse(errorType string, description string) {
 	if r.Response.header == nil {
 		r.Response.header = make(map[string][]string)
 	}
