@@ -198,6 +198,21 @@ func (h *OAuth2) NewAuthorizationRequest(r *http.Request) (*AuthorizationRequest
 		return authzReq, err
 	}
 
+	// Validate and set state
+	if state, ok := q["state"]; ok {
+		if len(state[0]) >= 8 {
+			authzReq.State = state[0]
+		} else {
+			err = errors.New("state should be at least 8 characters long")
+		}
+	} else {
+		err = errors.New("state missing")
+	}
+	if err != nil {
+		authzReq.setErrorResponse(ERRCODE_INVALID_REQUEST, err.Error())
+		return authzReq, err
+	}
+
 	authzReq.setIdpRedirectResponse()
 
 	return authzReq, err
