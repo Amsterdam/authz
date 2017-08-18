@@ -9,7 +9,7 @@ import (
 
 const (
 	DefaultBindAddress     = ":8080"
-	DefaultHost            = "localhost:8080"
+	DefaultURL             = "http://localhost:8080/goauth2"
 	DefaultRedisAddress    = ":6379"
 	DefaultRedisPassword   = ""
 	DefaultRedisExpireSecs = 600
@@ -18,7 +18,7 @@ const (
 // Config represents the configuration format for the server.
 type Config struct {
 	BindAddress string                  `toml:"bind-address"`
-	Host        string                  `toml:"host"`
+	URL         string                  `toml:"url"`
 	IdP         map[string]interface{}  `toml:"idp"`
 	Client      map[string]OAuth2Client `toml:"client"`
 	Redis       Redis                   `toml:"redis"`
@@ -38,7 +38,7 @@ type Redis struct {
 func NewConfig(configPath string) (*Config, error) {
 	config := &Config{
 		BindAddress: DefaultBindAddress,
-		Host:        DefaultHost,
+		URL:         DefaultURL,
 		Redis: Redis{
 			DefaultRedisAddress,
 			DefaultRedisPassword,

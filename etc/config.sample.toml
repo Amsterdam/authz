@@ -2,7 +2,7 @@
 
 # Bind address to use for the HTTP service
 # bind-address = ":8080"
-
+# url = "http://localhost:8080/"
 
 # Redis connection params
 # [redis]
