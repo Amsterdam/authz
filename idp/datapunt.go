@@ -8,7 +8,7 @@ import (
 
 // An IdP implementation of the Datapunt IdP.
 type DatapuntIdP struct {
-	BaseURL string
+	baseURL string
 }
 
 // Constructor. Validating its config and creates the instance.
@@ -22,11 +22,24 @@ func NewDatapuntIdP(config interface{}) (*DatapuntIdP, error) {
 }
 
 // Generate the Authentication redirect.
-func (d *DatapuntIdP) AuthnRedirect(callbackURL url.URL, opaqueToken string) (redirURL url.URL, key []byte, value []byte) {
-	return
+func (d *DatapuntIdP) AuthnRedirect(opaqueToken string, callbackURL url.URL, kv KeyValueStore) (string, error) {
+	cbQuery := callbackURL.Query()
+	cbQuery.Set("token", opaqueToken)
+	callbackURL.RawQuery = cbQuery.Encode()
+	callbackURL.Fragment = "#"
+
+	baseURL, err := url.Parse(d.baseURL)
+	if err != nil {
+		return "", err
+	}
+	buQuery := baseURL.Query()
+	buQuery.Set("callback", callbackURL.String())
+	baseURL.RawQuery = buQuery.Encode()
+
+	return baseURL.String(), nil
 }
 
-// Get the user attributes.
-func (d *DatapuntIdP) UserAttributes(r *http.Request) (uAttrs []byte, err error) {
-	return
+// User returns a User and the original opaque token.
+func (d *DatapuntIdP) User(r *http.Request, kv KeyValueStore) (*User, string, error) {
+	return nil, "", nil
 }

@@ -1,4 +1,4 @@
-# We sadly need this in due to a bug in the Jenkins Docker Build Step plugin.
+# We sadly need this line due to a bug in the Jenkins Docker Build Step plugin.
 FROM scratch
 
 FROM golang:latest as builder

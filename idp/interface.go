@@ -10,15 +10,20 @@ import (
 	"github.com/DatapuntAmsterdam/goauth2/config"
 )
 
+// User wraps all information we want an IdP to return to us.
+type User struct {
+	UId   string
+	Roles []string
+}
+
 // The interface that needs to be implemented for identity providers.
 type IdP interface {
 
-	// AuthnRedirect(...) returns a URL and optionally, a key and value that
-	// will be stored for future retrieval.
-	AuthnRedirect(callbackURL url.URL, opaqueToken string) (url.URL, []byte, []byte)
+	// AuthnRedirect(...) returns an authentication URL.
+	AuthnRedirect(opaqueToken string, callbackURL url.URL, kv KeyValueStore) (string, error)
 
-	// UserAttributes returns attributes as a json string in a byte slice.
-	UserAttributes(r *http.Request) ([]byte, error)
+	// User returns the User and opaque token.
+	User(r *http.Request, kv KeyValueStore) (*User, string, error)
 }
 
 // IdPMap returns a map with instances of all configured IdP's.
@@ -38,4 +43,9 @@ func IdPMap(config *config.Config) (map[string]IdP, error) {
 		}
 	}
 	return idpMap, nil
+}
+
+type KeyValueStore interface {
+	Get(key []byte) ([]byte, error)
+	Set(key []byte, value []byte) error
 }

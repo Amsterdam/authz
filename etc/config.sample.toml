@@ -4,6 +4,13 @@
 # bind-address = ":8080"
 
 
+# Redis connection params
+# [redis]
+# host = "localhost"
+# port = 6379
+# password = ""
+
+
 # Identity providers, schemaless config. Comment out / remove the ones you don't need.
 [idp.datapunt]
 url = "https://api.data.amsterdam.nl/auth/idp/login"
