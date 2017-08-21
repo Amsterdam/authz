@@ -108,6 +108,7 @@ type AuthorizationRequest struct {
 	// Context.
 	idProvider   idp.IdP
 	oauth2Client *OAuth2ClientConfig
+	kvStoreIdp   transientstorage.TransientStorageIdP
 	redirectURI  *url.URL
 }
 
@@ -165,6 +166,8 @@ func (h *OAuth20Resources) NewAuthorizationRequest(r *http.Request) (*Authorizat
 	if idpId, ok := q["idp_id"]; ok {
 		if i, ok := h.idps[idpId[0]]; ok {
 			authzReq.idProvider = i
+			// Set the KV store for this IdP
+			authzReq.kvStoreIdp = h.kvStore.StorageForIdP(idpId[0])
 		} else {
 			err = errors.New("unknown idp_id")
 		}
@@ -211,16 +214,6 @@ func (h *OAuth20Resources) NewAuthorizationRequest(r *http.Request) (*Authorizat
 	return authzReq, err
 }
 
-type TestKeyValueStore struct{}
-
-func (kv *TestKeyValueStore) Get(key []byte) ([]byte, error) {
-	return []byte(""), nil
-}
-
-func (kv *TestKeyValueStore) Set(key []byte, value []byte) error {
-	return nil
-}
-
 // setIdpRedirectResponse sets a 303 See Other response.
 func (r *AuthorizationRequest) setIdpRedirectResponse() {
 	// Create an opaque token that can be used to store / fetch request params.
@@ -230,12 +223,8 @@ func (r *AuthorizationRequest) setIdpRedirectResponse() {
 	}
 	r.Id = string(reqId)
 	// Get the IdP's redirect URI
-	// 1. Where should the IdP bring the client back to?
 	cb, _ := url.Parse("http://localhost")
-	// 2. Create a key-value store
-	kv := &TestKeyValueStore{}
-	// 3. Get the redirect uri
-	authnRedir, _ := r.idProvider.AuthnRedirect(r.Id, *cb, kv)
+	authnRedir, _ := r.idProvider.AuthnRedirect(r.Id, *cb, r.kvStoreIdp)
 	// Create and set the response
 	if r.Response.header == nil {
 		r.Response.header = make(map[string][]string)

@@ -20,6 +20,11 @@ type RedisStorage struct {
 	expiry int
 }
 
+type RedisStorageIdP struct {
+	idp string
+	*RedisStorage
+}
+
 func NewRedisStorage(config *RedisConfig) *RedisStorage {
 	redisStore := &RedisStorage{}
 	// Create a Redis connectionpool
@@ -74,4 +79,16 @@ func (r *RedisStorage) SetAuthorizationParams(id string, params *AuthorizationPa
 
 func (r *RedisStorage) GetAuthorizationParams(id string) (*AuthorizationParams, error) {
 	return nil, nil
+}
+
+func (r *RedisStorage) StorageForIdP(idp string) TransientStorageIdP {
+	return &RedisStorageIdP{idp, r}
+}
+
+func (i *RedisStorageIdP) Set(key []byte, value []byte) error {
+	return nil
+}
+
+func (i *RedisStorageIdP) Get(key []byte) ([]byte, error) {
+	return []byte(""), nil
 }
