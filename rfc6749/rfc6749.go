@@ -1,19 +1,15 @@
-package main
+package rfc6749
 
 import (
-	"bytes"
-	"encoding/gob"
 	"errors"
 	"fmt"
 	"log"
 	"math/rand"
 	"net/http"
 	"net/url"
-	"time"
 
-	"github.com/DatapuntAmsterdam/goauth2/config"
-	"github.com/DatapuntAmsterdam/goauth2/idp"
-	"github.com/garyburd/redigo/redis"
+	"github.com/DatapuntAmsterdam/goauth2/rfc6749/idp"
+	"github.com/DatapuntAmsterdam/goauth2/rfc6749/transientstorage"
 )
 
 // Supported grant types & handlers
@@ -55,116 +51,67 @@ func (r *AuthorizationResponse) Write(w http.ResponseWriter) {
 	w.Write(r.body)
 }
 
-// Resource handlers for the OAuth 2.0 service.
-type OAuth2 struct {
-	idps    map[string]idp.IdP
-	clients map[string]config.OAuth2Client
-	// ScopesMap ScopeMap
-	redisPool       *redis.Pool
-	redisExpireSecs int
+type OAuth2ClientConfig struct {
+	Redirects []string `toml:"redirects"`
 }
 
-// OAuth 2.0 resources.
-//
-// NewOAuth2() initializes eveyrthing needed to handle OAuth 2.0 requests.
-func NewOAuth2(conf *config.Config) (*OAuth2, error) {
-	// Create a Redis connectionpool
-	pool := &redis.Pool{
-		MaxIdle:     3,
-		IdleTimeout: 240 * time.Second,
-		// Dial creates a connection and authenticates
-		Dial: func() (redis.Conn, error) {
-			c, err := redis.Dial("tcp", conf.Redis.Address)
-			if err != nil {
-				return nil, err
-			}
-			if conf.Redis.Password != "" {
-				if _, err := c.Do("AUTH", conf.Redis.Password); err != nil {
-					c.Close()
-					return nil, err
-				}
-			}
-			return c, nil
-		},
-		// Ping a connection to see whether it's still alive
-		// TODO: give more thought to semantics
-		TestOnBorrow: func(c redis.Conn, t time.Time) error {
-			if time.Since(t) < time.Minute {
-				return nil
-			}
-			_, err := c.Do("PING")
-			return err
-		},
-	}
-	// Create the IdP map
-	idps, err := idp.IdPMap(conf)
-	if err != nil {
-		return nil, err
-	}
-	// Create the OAuth 2.0 object
-	oauth2 := &OAuth2{
-		idps:            idps,
-		clients:         conf.Client,
-		redisPool:       pool,
-		redisExpireSecs: conf.Redis.ExpireSecs,
-	}
-	return oauth2, nil
+// Resource handlers for the OAuth 2.0 service.
+type OAuth20Resources struct {
+	idps    map[string]idp.IdP
+	clients map[string]OAuth2ClientConfig
+	kvStore transientstorage.TransientStorage
+	// ScopesMap ScopeMap
+	AuthorizationRequest http.Handler
+}
+
+func NewOAuth20Resources(idps map[string]idp.IdP, clients map[string]OAuth2ClientConfig, kvStore transientstorage.TransientStorage) *OAuth20Resources {
+	oauth20Resources := &OAuth20Resources{idps: idps, clients: clients, kvStore: kvStore}
+	oauth20Resources.AuthorizationRequest = http.HandlerFunc(oauth20Resources.authorizationRequest)
+	return oauth20Resources
 }
 
 // AuthorizationRequest handles an OAuth 2.0 authorization request.
-func (h OAuth2) AuthorizationRequest(w http.ResponseWriter, r *http.Request) {
+func (h OAuth20Resources) authorizationRequest(w http.ResponseWriter, r *http.Request) {
 	// Create an authorization request
 	authzReq, err := h.NewAuthorizationRequest(r)
 	if err != nil {
 		log.Printf("Authz request error: %s -> %s", r.RequestURI, err)
 	} else {
-		// Save data in Redis
-		var data bytes.Buffer
-		enc := gob.NewEncoder(&data)
-		err := enc.Encode(&authzReq.AuthorizationParams)
-		if err != nil {
+		params := &transientstorage.AuthorizationParams{
+			ClientId:     authzReq.ClientId,
+			RedirectURI:  authzReq.RedirectURI,
+			ResponseType: authzReq.ResponseType,
+			Scope:        authzReq.Scope,
+			State:        authzReq.State,
+		}
+		if err := h.kvStore.SetAuthorizationParams(authzReq.Id, params); err != nil {
 			authzReq.SetErrorResponse(ERRCODE_SERVER_ERROR, "server error")
-			log.Printf("Authz request error (problem encoding data): %s", err)
-		} else {
-			key := fmt.Sprintf("authzreq:%s", authzReq.Id)
-			value := data.String()
-			conn := h.redisPool.Get()
-			defer conn.Close()
-			if _, err := conn.Do("SET", key, value, "EX", h.redisExpireSecs); err != nil {
-				authzReq.SetErrorResponse(ERRCODE_SERVER_ERROR, "server error")
-				log.Printf("Authz request error (problem saving data in Redis): %s", err)
-			}
+			log.Printf("Authz request error: %s", err)
 		}
 	}
 	authzReq.Response.Write(w)
-}
-
-// AuthorizationParams are used throughout the authorization request sequence.
-type AuthorizationParams struct {
-	// All authorization request params
-	ClientId     string
-	RedirectURI  string
-	ResponseType string
-	Scope        []string
-	State        string
 }
 
 // AuthorizationRequest handles an authorization request.
 type AuthorizationRequest struct {
 	// An identifier to be used
 	Id string
+	// Expected params
+	ClientId     string
+	RedirectURI  string
+	ResponseType string
+	Scope        []string
+	State        string
 	// Request query and response
 	query    url.Values
 	Response *AuthorizationResponse
-	// Objects and values based on request params
+	// Context.
 	idProvider   idp.IdP
-	oauth2Client *config.OAuth2Client
+	oauth2Client *OAuth2ClientConfig
 	redirectURI  *url.URL
-	// All params
-	AuthorizationParams
 }
 
-func (h *OAuth2) NewAuthorizationRequest(r *http.Request) (*AuthorizationRequest, error) {
+func (h *OAuth20Resources) NewAuthorizationRequest(r *http.Request) (*AuthorizationRequest, error) {
 	// placeholder
 	var err error
 

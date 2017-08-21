@@ -3,7 +3,5 @@
 
 # except a few
 !*.go
-!service
-!idp
-!config
+!rfc6749
 !Godeps

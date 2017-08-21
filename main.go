@@ -12,29 +12,20 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/DatapuntAmsterdam/goauth2/config"
+	"github.com/DatapuntAmsterdam/goauth2/rfc6749"
+	"github.com/DatapuntAmsterdam/goauth2/rfc6749/idp"
+	"github.com/DatapuntAmsterdam/goauth2/rfc6749/transientstorage"
 	"github.com/bmizerany/pat"
 )
 
 func main() {
-	var configPath = flag.String("config", "", "Path to a configuration file.")
-	flag.Parse()
-	config, err := config.NewConfig(*configPath)
-	if err != nil {
-		log.Fatal(err)
-	}
-	runService(config)
-	log.Print("Service stopped")
-}
-
-// runService is starts the service and shuts it down when sigterm or sigint
-// is received.
-func runService(config *config.Config) {
+	// Load configuration
+	config := config()
 	// Create error and signal channels
 	errorChan := make(chan error)
 	signalChan := make(chan os.Signal, 1)
 	// Start the OAuth 2.0 server
-	go ServeOAuth20(config, errorChan)
+	go serveOAuth20(config, errorChan)
 	// Register signals
 	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
 	// Block until one of the signals above is received
@@ -48,11 +39,25 @@ func runService(config *config.Config) {
 			return
 		}
 	}
+	// Done. Stopping.
+	log.Print("Service stopped")
 }
 
-func ServeOAuth20(config *config.Config, errCh chan error) {
-	handler := OAuth2Handler(config)
-	listener := Listener(config)
+// configuration returns the service configuration
+func config() *Config {
+	var configPath = flag.String("config", "", "Path to a configuration file.")
+	flag.Parse()
+	config, err := LoadConfig(*configPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return config
+}
+
+// serveOAuth20 creates a TCP listener and the http.Handler and starts the HTTP server.
+func serveOAuth20(config *Config, errCh chan error) {
+	handler := oauth2Handler(config)
+	listener := listener(config)
 	defer listener.Close()
 	err := http.Serve(listener, handler)
 	if err != nil && !strings.Contains(err.Error(), "closed") {
@@ -60,17 +65,25 @@ func ServeOAuth20(config *config.Config, errCh chan error) {
 	}
 }
 
-func OAuth2Handler(config *config.Config) http.Handler {
-	oauth2, err := NewOAuth2(config)
+// oauth2Handler creates a http.Handler and registers all resource / method handlers.
+func oauth2Handler(config *Config) http.Handler {
+	// Create the IdP map
+	idps, err := idp.IdPMap(&config.IdP)
 	if err != nil {
 		log.Fatal(err)
 	}
+	// Create Redis Storage
+	redisStore := transientstorage.NewRedisStorage(&config.Redis)
+	// Create OAuth 2.0 resource hanlders
+	oauth20Resources := rfc6749.NewOAuth20Resources(idps, config.Clients, redisStore)
 	handler := pat.New()
-	handler.Add("GET", "/oauth2/authorize", http.HandlerFunc(oauth2.AuthorizationRequest))
+	handler.Add(
+		"GET", "/oauth2/authorize", oauth20Resources.AuthorizationRequest)
 	return handler
 }
 
-func Listener(config *config.Config) net.Listener {
+// listener creates a net.Listener.
+func listener(config *Config) net.Listener {
 	listener, err := net.Listen("tcp", config.BindAddress)
 	if err != nil {
 		log.Fatal(err)

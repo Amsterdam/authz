@@ -1,13 +1,9 @@
-// Identity provider interface and implementations.
-
 package idp
 
 import (
 	"log"
 	"net/http"
 	"net/url"
-
-	"github.com/DatapuntAmsterdam/goauth2/config"
 )
 
 // User wraps all information we want an IdP to return to us.
@@ -26,11 +22,14 @@ type IdP interface {
 	User(r *http.Request, kv KeyValueStore) (*User, string, error)
 }
 
+// IdPConfig stores configuration indexed by idp_id.
+type IdPConfig map[string]interface{}
+
 // IdPMap returns a map with instances of all configured IdP's.
-func IdPMap(config *config.Config) (map[string]IdP, error) {
+func IdPMap(config *IdPConfig) (map[string]IdP, error) {
 	var err error
 	idpMap := make(map[string]IdP)
-	for idp, idpConfig := range config.IdP {
+	for idp, idpConfig := range *config {
 		switch idp {
 		case "datapunt":
 			idpMap[idp], err = NewDatapuntIdP(idpConfig)
