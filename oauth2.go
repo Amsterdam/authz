@@ -1,4 +1,4 @@
-package service
+package main
 
 import (
 	"bytes"
@@ -57,7 +57,6 @@ func (r *AuthorizationResponse) Write(w http.ResponseWriter) {
 
 // Resource handlers for the OAuth 2.0 service.
 type OAuth2 struct {
-	Handler *Handler
 	idps    map[string]idp.IdP
 	clients map[string]config.OAuth2Client
 	// ScopesMap ScopeMap
@@ -67,7 +66,7 @@ type OAuth2 struct {
 
 // OAuth 2.0 resources.
 //
-// NewOAuth2() creates a Handler and registers all its resources.
+// NewOAuth2() initializes eveyrthing needed to handle OAuth 2.0 requests.
 func NewOAuth2(conf *config.Config) (*OAuth2, error) {
 	// Create a Redis connectionpool
 	pool := &redis.Pool{
@@ -104,26 +103,16 @@ func NewOAuth2(conf *config.Config) (*OAuth2, error) {
 	}
 	// Create the OAuth 2.0 object
 	oauth2 := &OAuth2{
-		Handler:         NewHandler(),
 		idps:            idps,
 		clients:         conf.Client,
 		redisPool:       pool,
 		redisExpireSecs: conf.Redis.ExpireSecs,
 	}
-	// Add all resource handlers
-	oauth2.Handler.addResources(
-		Resource{
-			"authorizationrequest", "/oauth2/authorize",
-			methodHandler{
-				"GET": oauth2.authorizationRequest,
-			},
-		},
-	)
 	return oauth2, nil
 }
 
-// authorizationRequest handles an OAuth 2.0 authorization request.
-func (h OAuth2) authorizationRequest(w http.ResponseWriter, r *http.Request) {
+// AuthorizationRequest handles an OAuth 2.0 authorization request.
+func (h OAuth2) AuthorizationRequest(w http.ResponseWriter, r *http.Request) {
 	// Create an authorization request
 	authzReq, err := h.NewAuthorizationRequest(r)
 	if err != nil {
@@ -218,7 +207,7 @@ func (h *OAuth2) NewAuthorizationRequest(r *http.Request) (*AuthorizationRequest
 			err = errors.New(fmt.Sprintf("invalid redirect_uri in client configuration: %s", authzReq.oauth2Client.Redirects[0]))
 		}
 	} else {
-		err = errors.New("must provide a redirect_uri for this client_id")
+		err = errors.New("must provide a valid redirect_uri for this client_id")
 	}
 	if err != nil {
 		authzReq.SetBadRequest(err.Error())
