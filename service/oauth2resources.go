@@ -199,22 +199,20 @@ func (h *OAuth2) NewAuthorizationRequest(r *http.Request) (*AuthorizationRequest
 	}
 
 	// Validate and set redirect_uri
-	if redirectURI, ok := q["redirect_uri"]; ok {
+	var redirectURI string
+	if redirect, ok := q["redirect_uri"]; ok {
 		for _, registeredRedirectURI := range authzReq.oauth2Client.Redirects {
-			if registeredRedirectURI == redirectURI[0] {
-				if redir, parseErr := url.Parse(registeredRedirectURI); parseErr == nil {
-					authzReq.RedirectURI = registeredRedirectURI
-					authzReq.redirectURI = redir
-				}
+			if registeredRedirectURI == redirect[0] {
+				redirectURI = redirect[0]
 				break
 			}
 		}
-		if authzReq.redirectURI == nil {
-			err = errors.New("invalid redirect_uri")
-		}
 	} else if len(authzReq.oauth2Client.Redirects) == 1 {
-		if redir, parseErr := url.Parse(authzReq.oauth2Client.Redirects[0]); parseErr == nil {
-			authzReq.RedirectURI = authzReq.oauth2Client.Redirects[0]
+		redirectURI = authzReq.oauth2Client.Redirects[0]
+	}
+	if redirectURI != "" {
+		if redir, parseErr := url.Parse(redirectURI); parseErr == nil {
+			authzReq.RedirectURI = redirectURI
 			authzReq.redirectURI = redir
 		} else {
 			err = errors.New(fmt.Sprintf("invalid redirect_uri in client configuration: %s", authzReq.oauth2Client.Redirects[0]))
