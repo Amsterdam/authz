@@ -213,7 +213,12 @@ func (h *OAuth2) NewAuthorizationRequest(r *http.Request) (*AuthorizationRequest
 			err = errors.New("invalid redirect_uri")
 		}
 	} else if len(authzReq.oauth2Client.Redirects) == 1 {
-		authzReq.RedirectURI = authzReq.oauth2Client.Redirects[0]
+		if redir, parseErr := url.Parse(authzReq.oauth2Client.Redirects[0]); parseErr == nil {
+			authzReq.RedirectURI = authzReq.oauth2Client.Redirects[0]
+			authzReq.redirectURI = redir
+		} else {
+			err = errors.New(fmt.Sprintf("invalid redirect_uri in client configuration: %s", authzReq.oauth2Client.Redirects[0]))
+		}
 	} else {
 		err = errors.New("must provide a redirect_uri for this client_id")
 	}
@@ -291,8 +296,11 @@ func (r *AuthorizationRequest) setIdpRedirectResponse() {
 	}
 	r.Id = string(reqId)
 	// Get the IdP's redirect URI
+	// 1. Where should the IdP bring the client back to?
 	cb, _ := url.Parse("http://localhost")
+	// 2. Create a key-value store
 	kv := &TestKeyValueStore{}
+	// 3. Get the redirect uri
 	authnRedir, _ := r.idProvider.AuthnRedirect(r.Id, *cb, kv)
 	// Create and set the response
 	if r.Response.header == nil {
