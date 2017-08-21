@@ -113,7 +113,7 @@ func NewOAuth2(conf *config.Config) (*OAuth2, error) {
 	// Add all resource handlers
 	oauth2.Handler.addResources(
 		Resource{
-			"authorizationrequest", "/authorize",
+			"authorizationrequest", "/oauth2/authorize",
 			methodHandler{
 				"GET": oauth2.authorizationRequest,
 			},
