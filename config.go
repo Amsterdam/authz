@@ -5,7 +5,7 @@ import (
 	"log"
 
 	"github.com/BurntSushi/toml"
-	"github.com/DatapuntAmsterdam/goauth2/rfc6749"
+	"github.com/DatapuntAmsterdam/goauth2/rfc6749/client"
 	"github.com/DatapuntAmsterdam/goauth2/rfc6749/idp"
 	"github.com/DatapuntAmsterdam/goauth2/rfc6749/transientstorage"
 )
@@ -20,11 +20,11 @@ const (
 
 // Config represents the configuration format for the server.
 type Config struct {
-	BindAddress string                                `toml:"bind-address"`
-	URL         string                                `toml:"url"`
-	IdP         idp.IdPConfig                         `toml:"idp"`
-	Clients     map[string]rfc6749.OAuth2ClientConfig `toml:"client"`
-	Redis       transientstorage.RedisConfig          `toml:"redis"`
+	BindAddress string                            `toml:"bind-address"`
+	URL         string                            `toml:"url"`
+	IdP         idp.IdPConfig                     `toml:"idp"`
+	Clients     client.OAuth20ClientMapFromConfig `toml:"client"`
+	Redis       transientstorage.RedisConfig      `toml:"redis"`
 }
 
 // LoadConfig returns an instance of Config with reasonable defaults.

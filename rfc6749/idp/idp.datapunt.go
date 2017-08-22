@@ -4,6 +4,8 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+
+	"github.com/DatapuntAmsterdam/goauth2/rfc6749/transientstorage"
 )
 
 // An IdP implementation of the Datapunt IdP.
@@ -22,7 +24,7 @@ func NewDatapuntIdP(config interface{}) (*DatapuntIdP, error) {
 }
 
 // Generate the Authentication redirect.
-func (d *DatapuntIdP) AuthnRedirect(opaqueToken string, callbackURL url.URL, kv KeyValueStore) (string, error) {
+func (d *DatapuntIdP) AuthnRedirect(opaqueToken string, callbackURL url.URL, kv transientstorage.TransientStorageIdP) (string, error) {
 	cbQuery := callbackURL.Query()
 	cbQuery.Set("token", opaqueToken)
 	callbackURL.RawQuery = cbQuery.Encode()
@@ -40,6 +42,6 @@ func (d *DatapuntIdP) AuthnRedirect(opaqueToken string, callbackURL url.URL, kv 
 }
 
 // User returns a User and the original opaque token.
-func (d *DatapuntIdP) User(r *http.Request, kv KeyValueStore) (*User, string, error) {
+func (d *DatapuntIdP) User(r *http.Request, kv transientstorage.TransientStorageIdP) (*User, string, error) {
 	return nil, "", nil
 }

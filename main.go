@@ -68,17 +68,19 @@ func serveOAuth20(config *Config, errCh chan error) {
 // oauth2Handler creates a http.Handler and registers all resource / method handlers.
 func oauth2Handler(config *Config) http.Handler {
 	// Create the IdP map
-	idps, err := idp.IdPMap(&config.IdP)
+	idps, err := idp.NewIdPMapFromConfig(config.IdP)
 	if err != nil {
 		log.Fatal(err)
 	}
 	// Create Redis Storage
 	redisStore := transientstorage.NewRedisStorage(&config.Redis)
+	// Clients
+	clients := config.Clients
 	// Create OAuth 2.0 resource hanlders
-	oauth20Resources := rfc6749.NewOAuth20Resources(idps, config.Clients, redisStore)
+	oauth20Handler := rfc6749.NewRequestHandler(clients, idps, redisStore)
 	handler := pat.New()
 	handler.Add(
-		"GET", "/oauth2/authorize", oauth20Resources.AuthorizationRequest)
+		"GET", "/oauth2/authorize", oauth20Handler)
 	return handler
 }
 
