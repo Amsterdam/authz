@@ -26,8 +26,3 @@ type IdP interface {
 type IdPMap interface {
 	Get(idpId string) (IdP, error)
 }
-
-type KeyValueStore interface {
-	Get(key []byte) ([]byte, error)
-	Set(key []byte, value []byte) error
-}

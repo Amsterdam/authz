@@ -67,13 +67,7 @@ func (h *RequestHandler) requestHandler(w http.ResponseWriter, r *http.Request) 
 		log.Fatal(err)
 	}
 	// Seems like we're good
-	idp, err := request.IdP()
-	if err != nil {
-		log.Printf("OAuth 2.0 server error: %s", err)
-		OAuth20ErrorResponse(w, &OAuth20Error{ERRCODE_SERVER_ERROR, "oops!"}, redirectURI)
-		return
-	}
-	idpId, err := request.IdPId()
+	idpId, idp, err := request.IdP()
 	if err != nil {
 		log.Printf("OAuth 2.0 server error: %s", err)
 		OAuth20ErrorResponse(w, &OAuth20Error{ERRCODE_SERVER_ERROR, "oops!"}, redirectURI)
@@ -216,30 +210,16 @@ func (r *Request) State() (string, error) {
 	return "", &OAuth20Error{ERRCODE_INVALID_REQUEST, "state missing"}
 }
 
-func (r *Request) IdPId() (string, error) {
-	if r.idpId != "" {
-		return r.idpId, nil
-	}
+func (r *Request) IdP() (string, idp.IdP, error) {
 	// request query string
 	q := r.URL.Query()
 	// extract idp
 	if idpId, ok := q["idp_id"]; ok {
-		r.idpId = idpId[0]
-		return idpId[0], nil
+		idp, err := r.idps.Get(idpId[0])
+		if err != nil {
+			return "", nil, &OAuth20Error{ERRCODE_INVALID_REQUEST, "invalid idp_id"}
+		}
+		return idpId[0], idp, nil
 	}
-	return "", &OAuth20Error{ERRCODE_INVALID_REQUEST, "idp_id missing"}
-}
-
-func (r *Request) IdP() (idp.IdP, error) {
-	idpId, err := r.IdPId()
-	if err != nil {
-		return nil, err
-	}
-	idp, err := r.idps.Get(idpId)
-	if err != nil {
-		// TODO: the below may need to become more complicated when we use
-		// a different backing store.
-		return nil, &OAuth20Error{ERRCODE_INVALID_REQUEST, "unknown idp_id"}
-	}
-	return idp, nil
+	return "", nil, &OAuth20Error{ERRCODE_INVALID_REQUEST, "idp_id missing"}
 }
