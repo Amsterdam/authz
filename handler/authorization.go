@@ -1,4 +1,4 @@
-package rfc6749
+package handler
 
 import (
 	"errors"
@@ -7,9 +7,8 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/DatapuntAmsterdam/goauth2/rfc6749/client"
-	"github.com/DatapuntAmsterdam/goauth2/rfc6749/idp"
-	"github.com/DatapuntAmsterdam/goauth2/rfc6749/transientstorage"
+	"github.com/DatapuntAmsterdam/goauth2/client"
+	"github.com/DatapuntAmsterdam/goauth2/storage"
 )
 
 var grants = map[string]struct{}{
@@ -17,23 +16,25 @@ var grants = map[string]struct{}{
 	"token": {},
 }
 
-type RequestHandler struct {
-	http.Handler
-	clients client.OAuth20ClientMap
-	idps    idp.IdPMap
-	store   transientstorage.TransientStorage
+type AuthorizationHandler struct {
+	clients        client.OAuth20ClientMap
+	authnRedirects map[string]AuthnRedirect
+	//	scopes  interface{}
+	store storage.Transient
 }
 
-func NewRequestHandler(clients client.OAuth20ClientMap, idps idp.IdPMap, store transientstorage.TransientStorage) *RequestHandler {
-	r := &RequestHandler{nil, clients, idps, store}
-	r.Handler = http.HandlerFunc(r.requestHandler)
-	return r
-}
-
-func (h *RequestHandler) requestHandler(w http.ResponseWriter, r *http.Request) {
-	request := &Request{r, h.clients, h.idps, "", "", "", []string{}, "", ""}
+func (a *AuthorizationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	request := &AuthorizationRequest{
+		Request:        r,
+		clients:        a.clients,
+		authnRedirects: a.authnRedirects,
+	}
 	var err error
-	params := &transientstorage.AuthorizationParams{}
+	params := &AuthorizationState{}
 	if params.ClientId, err = request.ClientId(); err != nil {
 		log.Printf("OAuth 2.0 bad request: %s", err)
 		HTTP400BadRequest(w, fmt.Sprintf("missing or invalid client_id: %s", err))
@@ -66,46 +67,31 @@ func (h *RequestHandler) requestHandler(w http.ResponseWriter, r *http.Request) 
 		}
 		log.Fatal(err)
 	}
-	// Seems like we're good
-	idpId, idp, err := request.IdP()
+	authnRedirect, err := request.AuthnRedirect()
 	if err != nil {
 		log.Printf("OAuth 2.0 server error: %s", err)
 		OAuth20ErrorResponse(w, &OAuth20Error{ERRCODE_SERVER_ERROR, "oops!"}, redirectURI)
 		return
 	}
-	requestId := NewRequestId()
-	cb, _ := url.Parse("http://localhost")
-	authnRedirect, err := idp.AuthnRedirect(requestId, *cb, h.store.StorageForIdP(idpId))
-	if err != nil {
-		log.Printf("OAuth 2.0 server error: %s", err)
-		OAuth20ErrorResponse(w, &OAuth20Error{ERRCODE_SERVER_ERROR, "oops!"}, redirectURI)
-		return
-	}
-	if err := h.store.SetAuthorizationParams(requestId, params); err != nil {
-		log.Printf("OAuth 2.0 server error: %s", err)
-		OAuth20ErrorResponse(w, &OAuth20Error{ERRCODE_SERVER_ERROR, "oops!"}, redirectURI)
-		return
-	}
-	headers := w.Header()
-	headers.Add("Location", authnRedirect)
-	w.WriteHeader(http.StatusSeeOther)
+	authnRedirect(params, w)
 }
 
-type Request struct {
+type AuthorizationRequest struct {
 	*http.Request
 
-	clients client.OAuth20ClientMap
-	idps    idp.IdPMap
+	clients        client.OAuth20ClientMap
+	authnRedirects map[string]AuthnRedirect
+
+	idpId string
 
 	clientId     string
 	redirectURI  string
 	responseType string
 	scope        []string
 	state        string
-	idpId        string
 }
 
-func (r *Request) ClientId() (string, error) {
+func (r *AuthorizationRequest) ClientId() (string, error) {
 	if r.clientId != "" {
 		return r.clientId, nil
 	}
@@ -122,7 +108,7 @@ func (r *Request) ClientId() (string, error) {
 	return "", errors.New("client_id missing")
 }
 
-func (r *Request) RedirectURI() (string, error) {
+func (r *AuthorizationRequest) RedirectURI() (string, error) {
 	if r.redirectURI != "" {
 		return r.redirectURI, nil
 	}
@@ -144,7 +130,7 @@ func (r *Request) RedirectURI() (string, error) {
 	return "", errors.New("redirect_uri missing")
 }
 
-func (r *Request) validateRedirectURI(redirectURI string) error {
+func (r *AuthorizationRequest) validateRedirectURI(redirectURI string) error {
 	clientId, err := r.ClientId()
 	if err != nil {
 		return err
@@ -161,7 +147,7 @@ func (r *Request) validateRedirectURI(redirectURI string) error {
 	return errors.New("Invalid redirect URI")
 }
 
-func (r *Request) redirectURIFromClient() (string, error) {
+func (r *AuthorizationRequest) redirectURIFromClient() (string, error) {
 	clientId, err := r.ClientId()
 	if err != nil {
 		return "", err
@@ -176,7 +162,7 @@ func (r *Request) redirectURIFromClient() (string, error) {
 	return clientData.Redirects[0], nil
 }
 
-func (r *Request) ResponseType() (string, error) {
+func (r *AuthorizationRequest) ResponseType() (string, error) {
 	if r.responseType != "" {
 		return r.responseType, nil
 	}
@@ -193,7 +179,7 @@ func (r *Request) ResponseType() (string, error) {
 	return "", &OAuth20Error{ERRCODE_INVALID_REQUEST, "response_type missing"}
 }
 
-func (r *Request) State() (string, error) {
+func (r *AuthorizationRequest) State() (string, error) {
 	if r.state != "" {
 		return r.state, nil
 	}
@@ -210,16 +196,15 @@ func (r *Request) State() (string, error) {
 	return "", &OAuth20Error{ERRCODE_INVALID_REQUEST, "state missing"}
 }
 
-func (r *Request) IdP() (string, idp.IdP, error) {
+func (r *AuthorizationRequest) AuthnRedirect() (AuthnRedirect, error) {
 	// request query string
 	q := r.URL.Query()
 	// extract idp
 	if idpId, ok := q["idp_id"]; ok {
-		idp, err := r.idps.Get(idpId[0])
-		if err != nil {
-			return "", nil, &OAuth20Error{ERRCODE_INVALID_REQUEST, "invalid idp_id"}
+		if redir, ok := r.authnRedirects[idpId[0]]; ok {
+			return redir, nil
 		}
-		return idpId[0], idp, nil
+		return nil, &OAuth20Error{ERRCODE_INVALID_REQUEST, "invalid idp_id"}
 	}
-	return "", nil, &OAuth20Error{ERRCODE_INVALID_REQUEST, "idp_id missing"}
+	return nil, &OAuth20Error{ERRCODE_INVALID_REQUEST, "idp_id missing"}
 }

@@ -1,4 +1,4 @@
-package rfc6749
+package handler
 
 import "math/rand"
 

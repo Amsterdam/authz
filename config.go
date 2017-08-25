@@ -5,17 +5,16 @@ import (
 	"log"
 
 	"github.com/BurntSushi/toml"
-	"github.com/DatapuntAmsterdam/goauth2/rfc6749/client"
-	"github.com/DatapuntAmsterdam/goauth2/rfc6749/idp"
-	"github.com/DatapuntAmsterdam/goauth2/rfc6749/transientstorage"
+	"github.com/DatapuntAmsterdam/goauth2/client"
+	"github.com/DatapuntAmsterdam/goauth2/idp"
+	"github.com/DatapuntAmsterdam/goauth2/storage"
 )
 
 const (
-	DefaultBindAddress     = ":8080"
-	DefaultURL             = "http://localhost:8080/goauth2"
-	DefaultRedisAddress    = ":6379"
-	DefaultRedisPassword   = ""
-	DefaultRedisExpireSecs = 600
+	DefaultBindAddress   = ":8080"
+	DefaultURL           = "http://localhost:8080/goauth2"
+	DefaultRedisAddress  = ":6379"
+	DefaultRedisPassword = ""
 )
 
 // Config represents the configuration format for the server.
@@ -24,7 +23,7 @@ type Config struct {
 	URL         string                            `toml:"url"`
 	IdP         idp.IdPConfig                     `toml:"idp"`
 	Clients     client.OAuth20ClientMapFromConfig `toml:"client"`
-	Redis       transientstorage.RedisConfig      `toml:"redis"`
+	Redis       storage.RedisConfig               `toml:"redis"`
 }
 
 // LoadConfig returns an instance of Config with reasonable defaults.
@@ -32,10 +31,9 @@ func LoadConfig(configPath string) (*Config, error) {
 	config := &Config{
 		BindAddress: DefaultBindAddress,
 		URL:         DefaultURL,
-		Redis: transientstorage.RedisConfig{
+		Redis: storage.RedisConfig{
 			DefaultRedisAddress,
 			DefaultRedisPassword,
-			DefaultRedisExpireSecs,
 		},
 	}
 	if configPath == "" {

@@ -7,15 +7,15 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
 
-	"github.com/DatapuntAmsterdam/goauth2/rfc6749"
-	"github.com/DatapuntAmsterdam/goauth2/rfc6749/idp"
-	"github.com/DatapuntAmsterdam/goauth2/rfc6749/transientstorage"
-	"github.com/bmizerany/pat"
+	"github.com/DatapuntAmsterdam/goauth2/handler"
+	"github.com/DatapuntAmsterdam/goauth2/idp"
+	"github.com/DatapuntAmsterdam/goauth2/storage"
 )
 
 func main() {
@@ -56,7 +56,7 @@ func config() *Config {
 
 // serveOAuth20 creates a TCP listener and the http.Handler and starts the HTTP server.
 func serveOAuth20(config *Config, errCh chan error) {
-	handler := oauth2Handler(config)
+	handler := oauth20Handler(config)
 	listener := listener(config)
 	defer listener.Close()
 	err := http.Serve(listener, handler)
@@ -65,23 +65,28 @@ func serveOAuth20(config *Config, errCh chan error) {
 	}
 }
 
-// oauth2Handler creates a http.Handler and registers all resource / method handlers.
-func oauth2Handler(config *Config) http.Handler {
-	// Create the IdP map
-	idps, err := idp.NewIdPMapFromConfig(config.IdP)
+// oauth20Handler creates a http.Handler and registers all resource / method handlers.
+func oauth20Handler(config *Config) http.Handler {
+	// Parse base URL
+	baseURL, err := url.Parse(config.URL)
 	if err != nil {
 		log.Fatal(err)
 	}
 	// Create Redis Storage
-	redisStore := transientstorage.NewRedisStorage(&config.Redis)
+	redisStore := storage.NewRedisStorage(&config.Redis)
+	// Create the IdP map
+	idps, err := idp.Load(config.IdP)
+	if err != nil {
+		log.Fatal(err)
+	}
 	// Clients
 	clients := config.Clients
-	// Create OAuth 2.0 resource hanlders
-	oauth20Handler := rfc6749.NewRequestHandler(clients, idps, redisStore)
-	handler := pat.New()
-	handler.Add(
-		"GET", "/oauth2/authorize", oauth20Handler)
-	return handler
+	// Create OAuth 2.0 resource handlers
+	oauth20Handler, err := handler.NewOAuth20Handler(baseURL, clients, idps, redisStore)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return oauth20Handler
 }
 
 // listener creates a net.Listener.
