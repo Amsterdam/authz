@@ -8,7 +8,6 @@ import (
 	"net/url"
 
 	"github.com/DatapuntAmsterdam/goauth2/client"
-	"github.com/DatapuntAmsterdam/goauth2/storage"
 )
 
 var grants = map[string]struct{}{
@@ -20,7 +19,6 @@ type AuthorizationHandler struct {
 	clients        client.OAuth20ClientMap
 	authnRedirects map[string]AuthnRedirect
 	//	scopes  interface{}
-	store storage.Transient
 }
 
 func (a *AuthorizationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {

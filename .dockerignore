@@ -3,5 +3,8 @@
 
 # except a few
 !*.go
-!rfc6749
+!handler
+!client
+!storage
+!idp
 !Godeps

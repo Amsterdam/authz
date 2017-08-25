@@ -34,7 +34,7 @@ func NewOAuth20Handler(baseURL *url.URL, clients client.OAuth20ClientMap, idps i
 		handlers[u.Path] = handler
 	}
 	// Create authorization handler
-	authzHandler := &AuthorizationHandler{clients, authnRedirects, store}
+	authzHandler := &AuthorizationHandler{clients, authnRedirects}
 	u, err := baseURL.Parse("oauth2/authorize")
 	if err != nil {
 		return nil, err
