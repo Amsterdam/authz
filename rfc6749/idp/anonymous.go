@@ -10,11 +10,11 @@ import (
 
 type AnonymousIdP struct{}
 
-func (a *AnonymousIdP) AuthnRedirect(opaqueToken string, callbackURL url.URL, kv transientstorage.TransientStorageIdP) (string, error) {
+func (a *AnonymousIdP) AuthnRedirect(opaqueToken string, callbackURL url.URL, kv transientstorage.TransientStorageIdP) (url.URL, error) {
 	query := callbackURL.Query()
 	query.Set("token", opaqueToken)
 	callbackURL.RawQuery = query.Encode()
-	return callbackURL.String(), nil
+	return callbackURL, nil
 }
 
 // User returns a User and the original opaque token.

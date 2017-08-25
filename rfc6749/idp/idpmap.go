@@ -8,10 +8,10 @@ import (
 // IdPConfig stores configuration indexed by idp_id.
 type IdPConfig map[string]interface{}
 
-type IdPMapFromConfig map[string]IdP
+type IdPMap map[string]IdP
 
-func NewIdPMapFromConfig(config IdPConfig) (IdPMapFromConfig, error) {
-	cache := make(IdPMapFromConfig)
+func NewIdPMap(config IdPConfig) (IdPMap, error) {
+	cache := make(IdPMap)
 	var err error
 	for idp, idpConfig := range config {
 		switch idp {
@@ -28,7 +28,7 @@ func NewIdPMapFromConfig(config IdPConfig) (IdPMapFromConfig, error) {
 	return cache, nil
 }
 
-func (i IdPMapFromConfig) Get(idpId string) (IdP, error) {
+func (i IdPMap) Get(idpId string) (IdP, error) {
 	if idp, ok := i[idpId]; ok {
 		return idp, nil
 	}
