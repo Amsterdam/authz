@@ -65,13 +65,20 @@ func (a *AuthorizationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		}
 		log.Fatal(err)
 	}
-	authnRedirect, err := request.AuthnRedirect()
+	authnRedirectFunc, err := request.AuthnRedirect()
 	if err != nil {
 		log.Printf("OAuth 2.0 server error: %s", err)
 		OAuth20ErrorResponse(w, &OAuth20Error{ERRCODE_SERVER_ERROR, "oops!"}, redirectURI)
 		return
 	}
-	authnRedirect(params, w)
+	redir, err := authnRedirectFunc(params)
+	if err != nil {
+		log.Printf("OAuth 2.0 server error: %s", err)
+		OAuth20ErrorResponse(w, &OAuth20Error{ERRCODE_SERVER_ERROR, "idp error"}, redirectURI)
+		return
+	}
+	w.Header().Set("Location", redir.String())
+	w.WriteHeader(http.StatusSeeOther)
 }
 
 type AuthorizationRequest struct {

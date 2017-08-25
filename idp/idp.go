@@ -33,7 +33,7 @@ type User struct {
 type IdP interface {
 
 	// AuthnRedirect(...) returns an authentication URL and optional serialized data.
-	AuthnRedirect(callbackURL url.URL) (*url.URL, []byte, error)
+	AuthnRedirect(callbackURL *url.URL) (*url.URL, []byte, error)
 
 	// User receives the IdP's callback request and returns a User object or an error.
 	User(r *http.Request) (*User, error)
@@ -51,6 +51,9 @@ func Load(config IdPConfig) (map[string]IdP, error) {
 				return nil, err
 			}
 			log.Println("Added Datapunt IdP")
+		case "anonymous":
+			cache[idp] = &AnonymousIdP{}
+			log.Println("Added Anonymous IdP")
 		default:
 			log.Printf("WARNING: Unknown IdP in config: %s\n", idp)
 		}

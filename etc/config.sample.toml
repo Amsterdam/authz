@@ -15,6 +15,7 @@
 [idp.datapunt]
 url = "https://api.data.amsterdam.nl/auth/idp/login"
 
+[idp.anonymous]
 
 # OAuth 2.0 clients. Require client-id and redirects. client-secret optional.
 [client."citydata-data.amsterdam.nl"]

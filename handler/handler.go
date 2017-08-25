@@ -10,15 +10,6 @@ import (
 	"github.com/DatapuntAmsterdam/goauth2/storage"
 )
 
-type AuthorizationState struct {
-	ClientId     string
-	RedirectURI  string
-	ResponseType string
-	Scope        []string
-	State        string
-	IdPData      []byte
-}
-
 func NewOAuth20Handler(baseURL *url.URL, clients client.OAuth20ClientMap, idps idp.IdPMap, store storage.Transient) (http.Handler, error) {
 	handlers := make(map[string]http.Handler)
 	// Create IdP handlers and store a map of AuthnRedirects.

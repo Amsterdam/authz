@@ -48,14 +48,16 @@ func NewRedisStorage(config *RedisConfig) *RedisStorage {
 	return &RedisStorage{pool}
 }
 
-func (s *RedisStorage) Set(key []byte, value []byte, expireIn int) error {
-	// Save data in Redis
+// Save data in Redis
+func (s *RedisStorage) Set(key string, value string, expireIn int) error {
 	conn := s.pool.Get()
 	defer conn.Close()
 	_, err := conn.Do("SET", key, value, "EX", expireIn)
 	return err
 }
 
-func (s *RedisStorage) Get(key []byte) ([]byte, error) {
-	return []byte(""), nil
+func (s *RedisStorage) Get(key string) (string, error) {
+	conn := s.pool.Get()
+	defer conn.Close()
+	return redis.String(conn.Do("GET", key))
 }

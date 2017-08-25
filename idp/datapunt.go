@@ -22,7 +22,7 @@ func NewDatapuntIdP(config interface{}) (*DatapuntIdP, error) {
 }
 
 // Generate the Authentication redirect.
-func (d *DatapuntIdP) AuthnRedirect(callbackURL url.URL) (*url.URL, []byte, error) {
+func (d *DatapuntIdP) AuthnRedirect(callbackURL *url.URL) (*url.URL, []byte, error) {
 	var (
 		baseURL *url.URL
 		err     error

@@ -7,8 +7,8 @@ import (
 
 type AnonymousIdP struct{}
 
-func (a *AnonymousIdP) AuthnRedirect(callbackURL url.URL) (*url.URL, []byte, error) {
-	return &callbackURL, nil, nil
+func (a *AnonymousIdP) AuthnRedirect(callbackURL *url.URL) (*url.URL, []byte, error) {
+	return callbackURL, nil, nil
 }
 
 // User returns a User and the original opaque token.
