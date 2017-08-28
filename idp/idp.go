@@ -51,12 +51,14 @@ func Load(config IdPConfig) (map[string]IdP, error) {
 				return nil, err
 			}
 			log.Println("Added Datapunt IdP")
-		case "anonymous":
-			cache[idp] = &AnonymousIdP{}
-			log.Println("Added Anonymous IdP")
 		default:
 			log.Printf("WARNING: Unknown IdP in config: %s\n", idp)
 		}
+	}
+	// Add anonymous IdP only if no other IdP's are loaded
+	if len(cache) == 0 {
+		cache["anonymous"] = &AnonymousIdP{}
+		log.Println("WARNING: Added Anonymous IdP")
 	}
 	return cache, nil
 }

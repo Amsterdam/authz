@@ -1,23 +1,43 @@
 ### OAuth 2.0 service configuration file
 
-# Bind address to use for the HTTP service
-# bind-address = ":8080"
-# url = "http://localhost:8080/"
+bind-address = ":8080"
+# Bind address for the HTTP service
 
-# Redis connection params
-# [redis]
-# address = ":6379"
-# password = ""
-# expire_secs = 600
+url = "http://localhost:8080/"
+# Base URL of the service.
+
+[storage]
+# Storage backend configuration.
+# * If none is enabled the built-in in-memory storage backend will be used.
+#   This back-end should only be used in single-instance deployments.
+# * If more than one is enabled the server will refuse to start.
+
+  ## Connection params for Redis. An empty password won't AUTH.
+  # [storage.redis]
+  # address = ":6379"
+  # password = ""
 
 
-# Identity providers, schemaless config. Comment out / remove the ones you don't need.
-[idp.datapunt]
-url = "https://api.data.amsterdam.nl/auth/idp/login"
+[idp]
+# IdP configuration.
+# * If npne is enabled the built-in anonymous IdP will be used. This IdP should
+#   only be used for testing.
 
-[idp.anonymous]
+  # [idp.datapunt]
+  # url = "https://api.data.amsterdam.nl/auth/idp/login"
 
-# OAuth 2.0 clients. Require client-id and redirects. client-secret optional.
-[client."citydata-data.amsterdam.nl"]
-redirects = ["http://localhost:8080/"]
+
+[client]
+# OAuth 2.0 clients. Require client-id, granttype and redirects.
+
+  [client."citydata-data.amsterdam.nl"]
+  redirects = ["http://localhost:8080/"]
+  granttype = "code"  # | "token" | "client_credentials"
+
+
+[scope]
+
+  [scope.datapunt]
+  scopeset-url = "https://acc.api.data.amsterdam.nl/authz_admin/datasets?embed=item"
+  # We're extracting the full list of scopes from here.
 

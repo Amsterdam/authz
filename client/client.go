@@ -4,6 +4,7 @@ type OAuth20ClientData struct {
 	Id        string
 	Redirects []string
 	Secret    string
+	GrantType string
 }
 
 type OAuth20ClientMap interface {

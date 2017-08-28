@@ -15,6 +15,7 @@ import (
 
 	"github.com/DatapuntAmsterdam/goauth2/handler"
 	"github.com/DatapuntAmsterdam/goauth2/idp"
+	"github.com/DatapuntAmsterdam/goauth2/scope"
 	"github.com/DatapuntAmsterdam/goauth2/storage"
 )
 
@@ -72,17 +73,30 @@ func oauth20Handler(config *Config) http.Handler {
 	if err != nil {
 		log.Fatal(err)
 	}
-	// Create Redis Storage
-	redisStore := storage.NewRedisStorage(&config.Redis)
+	// Create Storage
+	redisStore, err := storage.Load(config.Storage)
+	if err != nil {
+		log.Fatal(err)
+	}
 	// Create the IdP map
 	idps, err := idp.Load(config.IdP)
 	if err != nil {
 		log.Fatal(err)
 	}
+	// Create scope set
+	scopes, err := scope.Load(config.Scope)
+	if err != nil {
+		log.Fatal(err)
+	}
+	// Make sure to close is if it is a remote set
+	if s, ok := scopes.(scope.RemoteSet); ok {
+		scopes = s
+		defer s.Close()
+	}
 	// Clients
-	clients := config.Clients
+	clients := config.Client
 	// Create OAuth 2.0 resource handlers
-	oauth20Handler, err := handler.NewOAuth20Handler(baseURL, clients, idps, redisStore)
+	oauth20Handler, err := handler.NewOAuth20Handler(baseURL, clients, idps, scopes, redisStore)
 	if err != nil {
 		log.Fatal(err)
 	}

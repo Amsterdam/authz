@@ -7,10 +7,11 @@ import (
 
 	"github.com/DatapuntAmsterdam/goauth2/client"
 	"github.com/DatapuntAmsterdam/goauth2/idp"
+	"github.com/DatapuntAmsterdam/goauth2/scope"
 	"github.com/DatapuntAmsterdam/goauth2/storage"
 )
 
-func NewOAuth20Handler(baseURL *url.URL, clients client.OAuth20ClientMap, idps idp.IdPMap, store storage.Transient) (http.Handler, error) {
+func NewOAuth20Handler(baseURL *url.URL, clients client.OAuth20ClientMap, idps idp.IdPMap, scopes scope.Set, store storage.Transient) (http.Handler, error) {
 	handlers := make(map[string]http.Handler)
 	// Create IdP handlers and store a map of AuthnRedirects.
 	authnRedirects := make(map[string]AuthnRedirect)
@@ -25,7 +26,7 @@ func NewOAuth20Handler(baseURL *url.URL, clients client.OAuth20ClientMap, idps i
 		handlers[u.Path] = handler
 	}
 	// Create authorization handler
-	authzHandler := &AuthorizationHandler{clients, authnRedirects}
+	authzHandler := &AuthorizationHandler{clients, authnRedirects, scopes}
 	u, err := baseURL.Parse("oauth2/authorize")
 	if err != nil {
 		return nil, err

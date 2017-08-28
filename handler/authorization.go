@@ -6,8 +6,10 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/DatapuntAmsterdam/goauth2/client"
+	"github.com/DatapuntAmsterdam/goauth2/scope"
 )
 
 var grants = map[string]struct{}{
@@ -18,7 +20,7 @@ var grants = map[string]struct{}{
 type AuthorizationHandler struct {
 	clients        client.OAuth20ClientMap
 	authnRedirects map[string]AuthnRedirect
-	//	scopes  interface{}
+	scopes         scope.Set
 }
 
 func (a *AuthorizationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -30,6 +32,7 @@ func (a *AuthorizationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		Request:        r,
 		clients:        a.clients,
 		authnRedirects: a.authnRedirects,
+		scopes:         a.scopes,
 	}
 	var err error
 	params := &AuthorizationState{}
@@ -65,6 +68,14 @@ func (a *AuthorizationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		}
 		log.Fatal(err)
 	}
+	if params.Scope, err = request.Scope(); err != nil {
+		if e, ok := err.(*OAuth20Error); ok {
+			log.Printf("OAuth 2.0 bad request: %s", err)
+			OAuth20ErrorResponse(w, e, redirectURI)
+			return
+		}
+		log.Fatal(err)
+	}
 	authnRedirectFunc, err := request.AuthnRedirect()
 	if err != nil {
 		log.Printf("OAuth 2.0 server error: %s", err)
@@ -86,8 +97,10 @@ type AuthorizationRequest struct {
 
 	clients        client.OAuth20ClientMap
 	authnRedirects map[string]AuthnRedirect
+	scopes         scope.Set
 
-	idpId string
+	idpId  string
+	client client.OAuth20ClientData
 
 	clientId     string
 	redirectURI  string
@@ -104,10 +117,12 @@ func (r *AuthorizationRequest) ClientId() (string, error) {
 	q := r.URL.Query()
 	// extract client id
 	if clientId, ok := q["client_id"]; ok {
-		if _, err := r.clients.Get(clientId[0]); err != nil {
+		client, err := r.clients.Get(clientId[0])
+		if err != nil {
 			return "", err
 		}
 		r.clientId = clientId[0]
+		r.responseType = client.GrantType
 		return clientId[0], nil
 	}
 	return "", errors.New("client_id missing")
@@ -168,18 +183,17 @@ func (r *AuthorizationRequest) redirectURIFromClient() (string, error) {
 }
 
 func (r *AuthorizationRequest) ResponseType() (string, error) {
-	if r.responseType != "" {
-		return r.responseType, nil
+	if r.responseType == "" {
+		return "", errors.New("Must first validate client_id")
 	}
 	// request query string
 	q := r.URL.Query()
 	// extract response_type
 	if responseType, ok := q["response_type"]; ok {
-		if _, ok := grants[responseType[0]]; ok {
-			r.responseType = responseType[0]
-			return responseType[0], nil
+		if responseType[0] == r.responseType {
+			return r.responseType, nil
 		}
-		return "", &OAuth20Error{ERRCODE_INVALID_SCOPE, "response_type not supported"}
+		return "", &OAuth20Error{ERRCODE_UNSUPPORTED_RESPONSE_TYPE, "response_type not supported"}
 	}
 	return "", &OAuth20Error{ERRCODE_INVALID_REQUEST, "response_type missing"}
 }
@@ -199,6 +213,32 @@ func (r *AuthorizationRequest) State() (string, error) {
 		return "", &OAuth20Error{ERRCODE_INVALID_REQUEST, "state should be at least 8 characters long"}
 	}
 	return "", &OAuth20Error{ERRCODE_INVALID_REQUEST, "state missing"}
+}
+
+func (r *AuthorizationRequest) Scope() ([]string, error) {
+	if r.scope != nil {
+		return r.scope, nil
+	}
+	scopeList := make(map[string]struct{})
+	// request query string
+	q := r.URL.Query()
+	// extract space delimited scopes
+	if scopes, ok := q["scope"]; ok {
+		for _, s := range strings.Split(scopes[0], " ") {
+			if !r.scopes.Includes(s) {
+				return nil, &OAuth20Error{ERRCODE_INVALID_SCOPE, fmt.Sprintf("Invalid scope: %s", s)}
+			}
+			scopeList[s] = struct{}{}
+		}
+	}
+	scopes := make([]string, len(scopeList))
+	i := 0
+	for k := range scopeList {
+		scopes[i] = k
+		i++
+	}
+	r.scope = scopes
+	return scopes, nil
 }
 
 func (r *AuthorizationRequest) AuthnRedirect() (AuthnRedirect, error) {

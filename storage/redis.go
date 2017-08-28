@@ -1,33 +1,45 @@
 package storage
 
 import (
+	"log"
 	"time"
 
 	"github.com/garyburd/redigo/redis"
 )
 
-type RedisConfig struct {
-	Address  string `toml:"address"`
-	Password string `toml:"password"`
-}
+const (
+	DefaultRedisAddress = ":6379"
+)
 
 type RedisStorage struct {
 	pool *redis.Pool
 }
 
-func NewRedisStorage(config *RedisConfig) *RedisStorage {
+func NewRedisStorage(config interface{}) (*RedisStorage, error) {
+	address := DefaultRedisAddress
+	password := ""
+	if redisConf, ok := config.(map[string]interface{}); ok {
+		if addr, ok := redisConf["address"].(string); ok {
+			if len(address) > 0 {
+				address = addr
+			}
+		}
+		if pwd, ok := redisConf["password"].(string); ok {
+			password = pwd
+		}
+	}
 	// Create a Redis connectionpool
 	pool := &redis.Pool{
 		MaxIdle:     3,
 		IdleTimeout: 240 * time.Second,
 		// Dial creates a connection and authenticates
 		Dial: func() (redis.Conn, error) {
-			c, err := redis.Dial("tcp", config.Address)
+			c, err := redis.Dial("tcp", address)
 			if err != nil {
 				return nil, err
 			}
-			if config.Password != "" {
-				if _, err := c.Do("AUTH", config.Password); err != nil {
+			if password != "" {
+				if _, err := c.Do("AUTH", password); err != nil {
 					c.Close()
 					return nil, err
 				}
@@ -44,8 +56,8 @@ func NewRedisStorage(config *RedisConfig) *RedisStorage {
 			return err
 		},
 	}
-
-	return &RedisStorage{pool}
+	log.Println("Created Redis back-end storage")
+	return &RedisStorage{pool}, nil
 }
 
 // Save data in Redis
