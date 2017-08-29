@@ -21,9 +21,9 @@ func Load(config TransientConfig) (Transient, error) {
 		case "redis":
 			return NewRedisStorage(storeConfig)
 		default:
-			log.Printf("WARNING: ignoring unknown storage type: %s\n", store)
+			log.Printf("WARNING: Ignoring unknown storage type: %s\n", store)
 		}
 	}
-	log.Println("Using in-memory storage")
+	log.Println("WARNING: Using in-memory storage")
 	return make(InMemoryStorage), nil
 }

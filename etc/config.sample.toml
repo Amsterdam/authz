@@ -10,7 +10,7 @@ url = "http://localhost:8080/"
 # Storage backend configuration.
 # * If none is enabled the built-in in-memory storage backend will be used.
 #   This back-end should only be used in single-instance deployments.
-# * If more than one is enabled the server will refuse to start.
+# * If more than one is enabled then the server will refuse to start.
 
   ## Connection params for Redis. An empty password won't AUTH.
   # [storage.redis]
@@ -20,7 +20,7 @@ url = "http://localhost:8080/"
 
 [idp]
 # IdP configuration.
-# * If npne is enabled the built-in anonymous IdP will be used. This IdP should
+# * If none is enabled the built-in anonymous IdP will be used. This IdP should
 #   only be used for testing.
 
   # [idp.datapunt]
@@ -36,8 +36,12 @@ url = "http://localhost:8080/"
 
 
 [scope]
+# Scope sources.
+# * If none is enabled the built-in fake scope set will be used. This should
+#   only be used for testing.
+# * If more than one is enabled then the server will refuse to start.
 
-  [scope.datapunt]
-  scopeset-url = "https://acc.api.data.amsterdam.nl/authz_admin/datasets?embed=item"
+  # [scope.datapunt]
+  # base-url = "https://acc.api.data.amsterdam.nl/authz_admin/"
   # We're extracting the full list of scopes from here.
 

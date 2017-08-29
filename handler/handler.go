@@ -15,23 +15,20 @@ func NewOAuth20Handler(baseURL *url.URL, clients client.OAuth20ClientMap, idps i
 	handlers := make(map[string]http.Handler)
 	// Create IdP handlers and store a map of AuthnRedirects.
 	authnRedirects := make(map[string]AuthnRedirect)
-	pathTempl := "oauth2/authorize/%s"
+	pathTempl := "authorize/%s"
 	for idpId, idp := range idps {
-		u, err := baseURL.Parse(fmt.Sprintf(pathTempl, idpId))
+		relPath := fmt.Sprintf(pathTempl, idpId)
+		u, err := baseURL.Parse(relPath)
 		if err != nil {
 			return nil, err
 		}
 		handler := &IdPHandler{idp, store, u}
 		authnRedirects[idpId] = handler.AuthnRedirect
-		handlers[u.Path] = handler
+		handlers[fmt.Sprintf("/%s", relPath)] = handler
 	}
 	// Create authorization handler
 	authzHandler := &AuthorizationHandler{clients, authnRedirects, scopes}
-	u, err := baseURL.Parse("oauth2/authorize")
-	if err != nil {
-		return nil, err
-	}
-	handlers[u.Path] = authzHandler
+	handlers["/authorize"] = authzHandler
 	// Create mux handler and register handlers
 	mux := http.NewServeMux()
 	for pattern, handler := range handlers {

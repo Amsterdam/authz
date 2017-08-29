@@ -20,10 +20,10 @@ func Load(config ScopeConfig) (Set, error) {
 	if len(config) > 1 {
 		return nil, errors.New("Only one scope source may be enabled at once")
 	}
-	for source, _ := range config {
+	for source, sourceConf := range config {
 		switch source {
 		case "datapunt":
-			return NewDatapuntScopeSet(), nil
+			return NewDatapuntScopeSet(sourceConf)
 		default:
 			log.Printf("WARNING: ignoring unknown scope source: %s\n", source)
 		}
