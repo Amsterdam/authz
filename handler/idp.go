@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/DatapuntAmsterdam/goauth2/authz"
 	"github.com/DatapuntAmsterdam/goauth2/idp"
 	"github.com/DatapuntAmsterdam/goauth2/storage"
 )
@@ -16,9 +17,10 @@ const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 type AuthnRedirect func(state *AuthorizationState) (*url.URL, error)
 
 type IdPHandler struct {
-	impl     idp.IdP
-	store    storage.Transient
-	callback *url.URL
+	impl          idp.IdP
+	store         storage.Transient
+	callback      *url.URL
+	authzProvider authz.Provider
 }
 
 func (i *IdPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -30,7 +32,9 @@ func (i *IdPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	data, err := i.store.Get(token[0])
 	if err != nil {
+		log.Printf("Error fetching state token: %s\n", err)
 		HTTP400BadRequest(w, "invalid state token.")
+		return
 	}
 	state, err := DecodeAuthorizationState(data)
 	if err != nil {
@@ -38,14 +42,26 @@ func (i *IdPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	user, err := i.impl.User(r)
+	redirectURI, err := url.Parse(state.RedirectURI)
+	if err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	user, err := i.impl.User(r, state.IdPData)
 	if err != nil {
 		log.Println(err)
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
-	log.Println(state, user)
-	// Roles to scopes!
+	userScopes := i.authzProvider.ScopeSetFor(user)
+	var grantedScopes []string
+	for _, scope := range state.Scope {
+		if userScopes.ValidScope(scope) {
+			grantedScopes = append(grantedScopes, scope)
+		}
+	}
+	OAuth20ImplicitGrantAccessTokenResponse(w, *redirectURI, "test", "bearer", 3600*10, grantedScopes, state.State)
 }
 
 func (i *IdPHandler) AuthnRedirect(state *AuthorizationState) (*url.URL, error) {

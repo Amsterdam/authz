@@ -1,2 +1,3 @@
 github.com/BurntSushi/toml a368813c5e648fee92e5f6c30e3944ff9d5e8895
 github.com/garyburd/redigo b925df3cc15d8646e9b5b333ebaf3011385aba11
+github.com/google/uuid 7e072fc3a7be179aee6d3359e46015aa8c995314

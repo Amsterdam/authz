@@ -11,3 +11,5 @@ services:
       - redis:redis
     ports:
       - "8080:8080"
+    volumes:
+      - ./etc/config.sample.toml:/etc/config.toml

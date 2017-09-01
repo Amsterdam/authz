@@ -1,2 +1,5 @@
 # the goauth2 binary
 goauth2
+
+# test config
+config.toml

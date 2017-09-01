@@ -18,12 +18,19 @@ const (
 
 // Config represents the configuration format for the server.
 type Config struct {
-	BindAddress string                            `toml:"bind-address"`
-	URL         string                            `toml:"url"`
-	IdP         idp.Config                        `toml:"idp"`
-	Client      client.OAuth20ClientMapFromConfig `toml:"client"`
-	Authz       authz.Config                      `toml:"authorization"`
-	Storage     storage.TransientConfig           `toml:"storage"`
+	BindAddress  string                            `toml:"bind-address"`
+	URL          string                            `toml:"url"`
+	IdP          idp.Config                        `toml:"idp"`
+	Client       client.OAuth20ClientMapFromConfig `toml:"client"`
+	Authz        authz.Config                      `toml:"authorization"`
+	Storage      storage.TransientConfig           `toml:"storage"`
+	AcccessToken AccessTokenConfig                 `toml:"accesstoken"`
+}
+
+// AccessToken configuration
+type AccessTokenConfig struct {
+	Secret   string `toml:"secret"`
+	Lifetime int    `toml:"lifetime"`
 }
 
 // LoadConfig returns an instance of Config with reasonable defaults.

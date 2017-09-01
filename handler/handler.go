@@ -22,7 +22,7 @@ func NewOAuth20Handler(baseURL *url.URL, clients client.OAuth20ClientMap, idps i
 		if err != nil {
 			return nil, err
 		}
-		handler := &IdPHandler{idp, store, u}
+		handler := &IdPHandler{idp, store, u, authzProvider}
 		authnRedirects[idpId] = handler.AuthnRedirect
 		handlers[fmt.Sprintf("/%s", relPath)] = handler
 	}

@@ -6,6 +6,13 @@ bind-address = ":8080"
 url = "http://localhost:8080/"
 # Base URL of the service.
 
+[accesstoken]
+secret = "makemehardtoguess"
+# Secret used to sign (HMAC-SHA256) access and refresh tokens.
+lifetime = 36000
+# Lifetime of access tokens
+
+
 [storage]
 # Storage backend configuration.
 # * If none is enabled the built-in in-memory storage backend will be used.
@@ -34,7 +41,7 @@ url = "http://localhost:8080/"
 
   [client."citydata-data.amsterdam.nl"]
   redirects = ["http://localhost:8080/"]
-  granttype = "code"  # | "token" | "client_credentials"
+  granttype = "token"  # "code"  | "token" | "client_credentials"
 
 
 [authorization]

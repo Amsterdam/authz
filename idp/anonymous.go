@@ -14,6 +14,6 @@ func (a *AnonymousIdP) AuthnRedirect(callbackURL *url.URL) (*url.URL, []byte, er
 }
 
 // User returns a User and the original opaque token.
-func (a *AnonymousIdP) User(r *http.Request) (*authz.User, error) {
+func (a *AnonymousIdP) User(r *http.Request, state []byte) (*authz.User, error) {
 	return &authz.User{"Anonymous", []string{}}, nil
 }

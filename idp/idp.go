@@ -28,11 +28,11 @@ type Config map[string]interface{}
 // The interface that needs to be implemented for identity providers.
 type IdP interface {
 
-	// AuthnRedirect(...) returns an authentication URL and optional serialized data.
+	// AuthnRedirect(...) returns an authentication URL and optional serialized state.
 	AuthnRedirect(callbackURL *url.URL) (*url.URL, []byte, error)
 
 	// User receives the IdP's callback request and returns a User object or an error.
-	User(r *http.Request) (*authz.User, error)
+	User(r *http.Request, state []byte) (*authz.User, error)
 }
 
 // Load returns a map of IdP-id -> IdP.

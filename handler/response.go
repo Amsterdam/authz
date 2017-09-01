@@ -1,8 +1,10 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 func HTTP400BadRequest(w http.ResponseWriter, body string) {
@@ -17,6 +19,18 @@ func OAuth20ErrorResponse(w http.ResponseWriter, err *OAuth20Error, redirectURI 
 	redirectURI.RawQuery = query.Encode()
 	headers := w.Header()
 	headers.Add("Location", redirectURI.String())
+	w.WriteHeader(http.StatusSeeOther)
+}
+
+func OAuth20ImplicitGrantAccessTokenResponse(w http.ResponseWriter, redirectURI url.URL, accessToken string, tokenType string, lifetime int, scope []string, state string) {
+	v := url.Values{}
+	v.Set("access_token", accessToken)
+	v.Set("token_type", tokenType)
+	v.Set("expires_in", fmt.Sprintf("%d", lifetime))
+	v.Set("scope", strings.Join(scope, " "))
+	v.Set("state", state)
+	redirectURI.Fragment = v.Encode()
+	w.Header().Add("Location", redirectURI.String())
 	w.WriteHeader(http.StatusSeeOther)
 }
 
