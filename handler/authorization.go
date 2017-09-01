@@ -8,8 +8,8 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/DatapuntAmsterdam/goauth2/authz"
 	"github.com/DatapuntAmsterdam/goauth2/client"
-	"github.com/DatapuntAmsterdam/goauth2/scope"
 )
 
 var grants = map[string]struct{}{
@@ -20,7 +20,7 @@ var grants = map[string]struct{}{
 type AuthorizationHandler struct {
 	clients        client.OAuth20ClientMap
 	authnRedirects map[string]AuthnRedirect
-	scopes         scope.Set
+	authzProvider  authz.Provider
 }
 
 func (a *AuthorizationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -32,7 +32,7 @@ func (a *AuthorizationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		Request:        r,
 		clients:        a.clients,
 		authnRedirects: a.authnRedirects,
-		scopes:         a.scopes,
+		authzProvider:  a.authzProvider,
 	}
 	var err error
 	params := &AuthorizationState{}
@@ -97,7 +97,7 @@ type AuthorizationRequest struct {
 
 	clients        client.OAuth20ClientMap
 	authnRedirects map[string]AuthnRedirect
-	scopes         scope.Set
+	authzProvider  authz.Provider
 
 	idpId  string
 	client client.OAuth20ClientData
@@ -225,7 +225,7 @@ func (r *AuthorizationRequest) Scope() ([]string, error) {
 	// extract space delimited scopes
 	if scopes, ok := q["scope"]; ok {
 		for _, s := range strings.Split(scopes[0], " ") {
-			if !r.scopes.Includes(s) {
+			if !r.authzProvider.ValidScope(s) {
 				return nil, &OAuth20Error{ERRCODE_INVALID_SCOPE, fmt.Sprintf("Invalid scope: %s", s)}
 			}
 			scopeList[s] = struct{}{}

@@ -13,9 +13,9 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/DatapuntAmsterdam/goauth2/authz"
 	"github.com/DatapuntAmsterdam/goauth2/handler"
 	"github.com/DatapuntAmsterdam/goauth2/idp"
-	"github.com/DatapuntAmsterdam/goauth2/scope"
 	"github.com/DatapuntAmsterdam/goauth2/storage"
 )
 
@@ -84,19 +84,14 @@ func oauth20Handler(config *Config) http.Handler {
 		log.Fatal(err)
 	}
 	// Create scope set
-	scopes, err := scope.Load(config.Scope)
+	authzProvider, err := authz.Load(config.Authz)
 	if err != nil {
 		log.Fatal(err)
-	}
-	// Make sure to close is if it is a remote set
-	if s, ok := scopes.(scope.RemoteSet); ok {
-		scopes = s
-		defer s.Close()
 	}
 	// Clients
 	clients := config.Client
 	// Create OAuth 2.0 resource handlers
-	oauth20Handler, err := handler.NewOAuth20Handler(baseURL, clients, idps, scopes, redisStore)
+	oauth20Handler, err := handler.NewOAuth20Handler(baseURL, clients, idps, authzProvider, redisStore)
 	if err != nil {
 		log.Fatal(err)
 	}

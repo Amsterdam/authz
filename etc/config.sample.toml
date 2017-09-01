@@ -25,6 +25,8 @@ url = "http://localhost:8080/"
 
   # [idp.datapunt]
   # url = "https://api.data.amsterdam.nl/auth/idp/login"
+  # secret = "atleast16characters"
+  # roles-url = "https://acc.api.data.amsterdam.nl/authz_admin/accounts/"
 
 
 [client]
@@ -35,13 +37,10 @@ url = "http://localhost:8080/"
   granttype = "code"  # | "token" | "client_credentials"
 
 
-[scope]
-# Scope sources.
-# * If none is enabled the built-in fake scope set will be used. This should
-#   only be used for testing.
-# * If more than one is enabled then the server will refuse to start.
+[authorization]
+# Authorization configuration.
 
-  # [scope.datapunt]
-  # base-url = "https://acc.api.data.amsterdam.nl/authz_admin/"
-  # We're extracting the full list of scopes from here.
+  [authorization.datapunt]
+  # Schemaless optional configuration for our authz provider.
+  base-url = "https://acc.api.data.amsterdam.nl/authz_admin/"
 

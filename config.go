@@ -5,9 +5,9 @@ import (
 	"log"
 
 	"github.com/BurntSushi/toml"
+	"github.com/DatapuntAmsterdam/goauth2/authz"
 	"github.com/DatapuntAmsterdam/goauth2/client"
 	"github.com/DatapuntAmsterdam/goauth2/idp"
-	"github.com/DatapuntAmsterdam/goauth2/scope"
 	"github.com/DatapuntAmsterdam/goauth2/storage"
 )
 
@@ -20,10 +20,9 @@ const (
 type Config struct {
 	BindAddress string                            `toml:"bind-address"`
 	URL         string                            `toml:"url"`
-	ScopesetURL string                            `toml:"scopeset-url"`
-	IdP         idp.IdPConfig                     `toml:"idp"`
+	IdP         idp.Config                        `toml:"idp"`
 	Client      client.OAuth20ClientMapFromConfig `toml:"client"`
-	Scope       scope.ScopeConfig                 `toml:"scope"`
+	Authz       authz.Config                      `toml:"authorization"`
 	Storage     storage.TransientConfig           `toml:"storage"`
 }
 

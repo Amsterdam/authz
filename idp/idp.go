@@ -15,19 +15,15 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+
+	"github.com/DatapuntAmsterdam/goauth2/authz"
 )
 
-// IdPMap stores IdP instances indexed by IdP id.
-type IdPMap map[string]IdP
+// Map stores IdP instances indexed by IdP id.
+type Map map[string]IdP
 
-// IdPConfig stores configuration indexed by idp_id.
-type IdPConfig map[string]interface{}
-
-// User wraps all information we want an IdP to return to us.
-type User struct {
-	UId   string
-	Roles []string
-}
+// Config stores configuration indexed by idp_id.
+type Config map[string]interface{}
 
 // The interface that needs to be implemented for identity providers.
 type IdP interface {
@@ -36,11 +32,11 @@ type IdP interface {
 	AuthnRedirect(callbackURL *url.URL) (*url.URL, []byte, error)
 
 	// User receives the IdP's callback request and returns a User object or an error.
-	User(r *http.Request) (*User, error)
+	User(r *http.Request) (*authz.User, error)
 }
 
 // Load returns a map of IdP-id -> IdP.
-func Load(config IdPConfig) (map[string]IdP, error) {
+func Load(config Config) (map[string]IdP, error) {
 	cache := make(map[string]IdP)
 	var err error
 	for idp, idpConfig := range config {

@@ -7,5 +7,5 @@
 !client
 !storage
 !idp
-!scope
+!authz
 !Godeps
