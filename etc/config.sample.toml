@@ -11,6 +11,8 @@ secret = "makemehardtoguess"
 # Secret used to sign (HMAC-SHA256) access and refresh tokens.
 lifetime = 36000
 # Lifetime of access tokens
+issuer = "http://localhost:8080/authorize"
+# Identifier of the token issuer (e.g. URI of authorizatuon endpoint)
 
 
 [storage]
@@ -41,7 +43,7 @@ lifetime = 36000
 
   [client."citydata-data.amsterdam.nl"]
   redirects = ["http://localhost:8080/"]
-  granttype = "token"  # "code"  | "token" | "client_credentials"
+  granttype = "token"  # "code" | "token" | "client_credentials"
 
 
 [authorization]

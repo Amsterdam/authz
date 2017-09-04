@@ -21,6 +21,7 @@ type IdPHandler struct {
 	store         storage.Transient
 	callback      *url.URL
 	authzProvider authz.Provider
+	tokenEncoder  *AccessTokenEncoder
 }
 
 func (i *IdPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -61,7 +62,13 @@ func (i *IdPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			grantedScopes = append(grantedScopes, scope)
 		}
 	}
-	OAuth20ImplicitGrantAccessTokenResponse(w, *redirectURI, "test", "bearer", 3600*10, grantedScopes, state.State)
+	accessToken, err := i.tokenEncoder.Encode(user.Uid, grantedScopes)
+	if err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	OAuth20ImplicitGrantAccessTokenResponse(w, *redirectURI, accessToken, "bearer", 3600*10, grantedScopes, state.State)
 }
 
 func (i *IdPHandler) AuthnRedirect(state *AuthorizationState) (*url.URL, error) {

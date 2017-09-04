@@ -17,21 +17,36 @@ type AccessTokenJWTHeader struct {
 }
 
 type AccessTokenJWTPayload struct {
-	IssuedAt  int64  `json:"iat"`
-	NotBefore int64  `json:"nbf"`
-	ExpiresAt int64  `json:"exp"`
-	JWTId     string `json:"jti"`
+	Issuer    string   `json:"iss"`
+	Subject   string   `json:"sub"`
+	IssuedAt  int64    `json:"iat"`
+	NotBefore int64    `json:"nbf"`
+	ExpiresAt int64    `json:"exp"`
+	JWTId     string   `json:"jti"`
+	Scopes    []string `json:"scopes"`
+	// Temporary for backwards compatibility: level
+	Level int `json:"level"`
 }
 
 type AccessTokenEncoder struct {
+	issuer   string
 	secret   []byte
 	lifetime int64
 }
 
-func (enc *AccessTokenEncoder) Encode() (string, error) {
+func NewAccessTokenEncoder(issuer string, secret []byte, lifetime int64) *AccessTokenEncoder {
+	return &AccessTokenEncoder{issuer, secret, lifetime}
+}
+
+func (enc *AccessTokenEncoder) Encode(subject string, scopes []string) (string, error) {
 	jti, err := uuid.NewRandom()
 	if err != nil {
 		return "", err
+	}
+	// Temporary for backwards compatibility
+	level := 1
+	if subject != "Medewerker" {
+		level = 3
 	}
 	now := time.Now().Unix()
 	header := &AccessTokenJWTHeader{
@@ -39,10 +54,14 @@ func (enc *AccessTokenEncoder) Encode() (string, error) {
 		Algorithm: "HS256",
 	}
 	payload := &AccessTokenJWTPayload{
+		Issuer:    enc.issuer,
+		Subject:   subject,
 		IssuedAt:  now,
 		NotBefore: now - 10,
 		ExpiresAt: now + enc.lifetime,
 		JWTId:     jti.String(),
+		Scopes:    scopes,
+		Level:     level,
 	}
 	headerJson, err := json.Marshal(header)
 	if err != nil {
