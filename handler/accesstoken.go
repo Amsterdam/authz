@@ -25,7 +25,7 @@ type AccessTokenJWTPayload struct {
 	JWTId     string   `json:"jti"`
 	Scopes    []string `json:"scopes"`
 	// Temporary for backwards compatibility: level
-	Authz int `json:"level"`
+	Authz int `json:"authz"`
 }
 
 type AccessTokenEncoder struct {
