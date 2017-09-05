@@ -60,14 +60,7 @@ func (a *AuthorizationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		}
 		log.Fatal(err)
 	}
-	if params.State, err = request.State(); err != nil {
-		if e, ok := err.(*OAuth20Error); ok {
-			log.Printf("OAuth 2.0 bad request: %s", err)
-			OAuth20ErrorResponse(w, e, redirectURI)
-			return
-		}
-		log.Fatal(err)
-	}
+	params.State = request.State()
 	if params.Scope, err = request.Scope(); err != nil {
 		if e, ok := err.(*OAuth20Error); ok {
 			log.Printf("OAuth 2.0 bad request: %s", err)
@@ -198,21 +191,14 @@ func (r *AuthorizationRequest) ResponseType() (string, error) {
 	return "", &OAuth20Error{ERRCODE_INVALID_REQUEST, "response_type missing"}
 }
 
-func (r *AuthorizationRequest) State() (string, error) {
-	if r.state != "" {
-		return r.state, nil
-	}
+func (r *AuthorizationRequest) State() string {
 	// request query string
 	q := r.URL.Query()
 	// extract state
 	if state, ok := q["state"]; ok {
-		if len(state[0]) >= 8 {
-			r.state = state[0]
-			return state[0], nil
-		}
-		return "", &OAuth20Error{ERRCODE_INVALID_REQUEST, "state should be at least 8 characters long"}
+		r.state = state[0]
 	}
-	return "", &OAuth20Error{ERRCODE_INVALID_REQUEST, "state missing"}
+	return r.state
 }
 
 func (r *AuthorizationRequest) Scope() ([]string, error) {

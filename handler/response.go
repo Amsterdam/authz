@@ -28,7 +28,9 @@ func OAuth20ImplicitGrantAccessTokenResponse(w http.ResponseWriter, redirectURI 
 	v.Set("token_type", tokenType)
 	v.Set("expires_in", fmt.Sprintf("%d", lifetime))
 	v.Set("scope", strings.Join(scope, " "))
-	v.Set("state", state)
+	if len(state) > 0 {
+		v.Set("state", state)
+	}
 	redirectURI.Fragment = v.Encode()
 	w.Header().Add("Location", redirectURI.String())
 	w.WriteHeader(http.StatusSeeOther)
