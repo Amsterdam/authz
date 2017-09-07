@@ -12,27 +12,23 @@ import (
 )
 
 func NewOAuth20Handler(baseURL *url.URL, clients client.OAuth20ClientMap, idps idp.Map, authzProvider authz.Provider, accesstokenEncoder *AccessTokenEncoder, store storage.Transient) (http.Handler, error) {
-	handlers := make(map[string]http.Handler)
+	mux := http.NewServeMux()
 	// Create IdP handlers and store a map of AuthnRedirects.
 	authnRedirects := make(map[string]AuthnRedirect)
 	pathTempl := "authorize/%s"
 	for idpId, idp := range idps {
 		relPath := fmt.Sprintf(pathTempl, idpId)
+		absPath := fmt.Sprintf("/%s", relPath)
 		u, err := baseURL.Parse(relPath)
 		if err != nil {
 			return nil, err
 		}
 		handler := &IdPHandler{idp, store, u, authzProvider, accesstokenEncoder}
 		authnRedirects[idpId] = handler.AuthnRedirect
-		handlers[fmt.Sprintf("/%s", relPath)] = handler
+		mux.Handle(absPath, handler)
 	}
 	// Create authorization handler
 	authzHandler := &AuthorizationHandler{clients, authnRedirects, authzProvider}
-	handlers["/authorize"] = authzHandler
-	// Create mux handler and register handlers
-	mux := http.NewServeMux()
-	for pattern, handler := range handlers {
-		mux.Handle(pattern, handler)
-	}
+	mux.Handle("/authorize", authzHandler)
 	return mux, nil
 }

@@ -85,7 +85,7 @@ func Fuzz(data []byte) (result int) {
 	}
 	if r, err := request.ResponseType(); err != nil {
 		if r != "" {
-			panic("ResponseType not emapty after error")
+			panic("ResponseType not empty after error")
 		}
 		if _, ok := err.(*OAuth20Error); ok {
 			return 0
