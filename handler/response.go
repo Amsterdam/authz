@@ -35,6 +35,3 @@ func OAuth20ImplicitGrantAccessTokenResponse(w http.ResponseWriter, redirectURI 
 	w.Header().Add("Location", redirectURI.String())
 	w.WriteHeader(http.StatusSeeOther)
 }
-
-func OAuth20IdPRedirect(w http.ResponseWriter) {
-}
