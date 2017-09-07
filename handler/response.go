@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func HTTP400BadRequest(w http.ResponseWriter, body string) {
+func httpBadRequest(w http.ResponseWriter, body string) {
 	w.WriteHeader(http.StatusBadRequest)
 	w.Write([]byte(body))
 }

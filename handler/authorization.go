@@ -38,18 +38,18 @@ func (a *AuthorizationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	params := &AuthorizationState{}
 	if params.ClientId, err = request.ClientId(); err != nil {
 		log.Printf("OAuth 2.0 bad request: %s", err)
-		HTTP400BadRequest(w, fmt.Sprintf("missing or invalid client_id: %s", err))
+		httpBadRequest(w, fmt.Sprintf("missing or invalid client_id: %s", err))
 		return
 	}
 	if params.RedirectURI, err = request.RedirectURI(); err != nil {
 		log.Printf("OAuth 2.0 bad request: %s", err)
-		HTTP400BadRequest(w, fmt.Sprintf("missing or invalid redirect_uri: %s", err))
+		httpBadRequest(w, fmt.Sprintf("missing or invalid redirect_uri: %s", err))
 		return
 	}
 	redirectURI, err := url.Parse(params.RedirectURI)
 	if err != nil {
 		log.Printf("OAuth 2.0 unexpected error: %s", err)
-		HTTP400BadRequest(w, fmt.Sprintf("Could not parse redirect URI: %s", params.RedirectURI))
+		httpBadRequest(w, fmt.Sprintf("Could not parse redirect URI: %s", params.RedirectURI))
 		return
 	}
 	if params.ResponseType, err = request.ResponseType(); err != nil {

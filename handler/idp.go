@@ -28,13 +28,13 @@ func (i *IdPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	token, ok := q["token"]
 	if !ok {
-		HTTP400BadRequest(w, "make an authorization request first.")
+		httpBadRequest(w, "make an authorization request first.")
 		return
 	}
 	data, err := i.store.Get(token[0])
 	if err != nil {
 		log.Printf("Error fetching state token: %s\n", err)
-		HTTP400BadRequest(w, "invalid state token.")
+		httpBadRequest(w, "invalid state token.")
 		return
 	}
 	state, err := DecodeAuthorizationState(data)
