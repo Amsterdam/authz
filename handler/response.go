@@ -12,7 +12,7 @@ func httpBadRequest(w http.ResponseWriter, body string) {
 	w.Write([]byte(body))
 }
 
-func OAuth20ErrorResponse(w http.ResponseWriter, err *OAuth20Error, redirectURI *url.URL) {
+func httpSeeOtherOAuth20Error(w http.ResponseWriter, err *OAuth20Error, redirectURI *url.URL) {
 	query := redirectURI.Query()
 	query.Set("error", err.Code)
 	query.Set("error_description", err.Description)

@@ -55,7 +55,7 @@ func (a *AuthorizationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	if params.ResponseType, err = request.ResponseType(); err != nil {
 		if e, ok := err.(*OAuth20Error); ok {
 			log.Printf("OAuth 2.0 bad request: %s", err)
-			OAuth20ErrorResponse(w, e, redirectURI)
+			httpSeeOtherOAuth20Error(w, e, redirectURI)
 			return
 		}
 		log.Fatal(err)
@@ -64,7 +64,7 @@ func (a *AuthorizationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	if params.Scope, err = request.Scope(); err != nil {
 		if e, ok := err.(*OAuth20Error); ok {
 			log.Printf("OAuth 2.0 bad request: %s", err)
-			OAuth20ErrorResponse(w, e, redirectURI)
+			httpSeeOtherOAuth20Error(w, e, redirectURI)
 			return
 		}
 		log.Fatal(err)
@@ -72,13 +72,13 @@ func (a *AuthorizationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	authnRedirectFunc, err := request.AuthnRedirect()
 	if err != nil {
 		log.Printf("OAuth 2.0 server error: %s", err)
-		OAuth20ErrorResponse(w, &OAuth20Error{ERRCODE_SERVER_ERROR, "oops!"}, redirectURI)
+		httpSeeOtherOAuth20Error(w, &OAuth20Error{ERRCODE_SERVER_ERROR, "oops!"}, redirectURI)
 		return
 	}
 	redir, err := authnRedirectFunc(params)
 	if err != nil {
 		log.Printf("OAuth 2.0 server error: %s", err)
-		OAuth20ErrorResponse(w, &OAuth20Error{ERRCODE_SERVER_ERROR, "idp error"}, redirectURI)
+		httpSeeOtherOAuth20Error(w, &OAuth20Error{ERRCODE_SERVER_ERROR, "idp error"}, redirectURI)
 		return
 	}
 	w.Header().Set("Location", redir.String())
