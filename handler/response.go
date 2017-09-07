@@ -22,7 +22,7 @@ func httpSeeOtherOAuth20Error(w http.ResponseWriter, err *OAuth20Error, redirect
 	w.WriteHeader(http.StatusSeeOther)
 }
 
-func OAuth20ImplicitGrantAccessTokenResponse(w http.ResponseWriter, redirectURI url.URL, accessToken string, tokenType string, lifetime int, scope []string, state string) {
+func httpSeeOtherOAuth20Implicit(w http.ResponseWriter, redirectURI url.URL, accessToken string, tokenType string, lifetime int, scope []string, state string) {
 	v := url.Values{}
 	v.Set("access_token", accessToken)
 	v.Set("token_type", tokenType)
