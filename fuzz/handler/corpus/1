@@ -1,0 +1,1 @@
+client_id=implicitclient&idp_id=testidp&response_type=token&state=12345678&scope=a%20b&redirect_uri=http%3A%2F%2Flocalhost%2F

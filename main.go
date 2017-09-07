@@ -74,7 +74,7 @@ func oauth20Handler(config *Config) http.Handler {
 		log.Fatal(err)
 	}
 	// Create Storage
-	redisStore, err := storage.Load(config.Storage)
+	store, err := storage.Load(config.Storage)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -97,7 +97,7 @@ func oauth20Handler(config *Config) http.Handler {
 	// Clients
 	clients := config.Client
 	// Create OAuth 2.0 resource handlers
-	oauth20Handler, err := handler.NewOAuth20Handler(baseURL, clients, idps, authzProvider, atEnc, redisStore)
+	oauth20Handler, err := handler.NewOAuth20Handler(baseURL, clients, idps, authzProvider, atEnc, store)
 	if err != nil {
 		log.Fatal(err)
 	}
