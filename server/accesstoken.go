@@ -1,4 +1,4 @@
-package handler
+package server
 
 import (
 	"crypto/hmac"
@@ -11,12 +11,12 @@ import (
 	"github.com/google/uuid"
 )
 
-type AccessTokenJWTHeader struct {
+type accessTokenJWTHeader struct {
 	Type      string `json:"typ"`
 	Algorithm string `json:"alg"`
 }
 
-type AccessTokenJWTPayload struct {
+type accessTokenJWTPayload struct {
 	Issuer    string   `json:"iss"`
 	Subject   string   `json:"sub"`
 	IssuedAt  int64    `json:"iat"`
@@ -28,17 +28,15 @@ type AccessTokenJWTPayload struct {
 	Authz int `json:"authz"`
 }
 
-type AccessTokenEncoder struct {
-	issuer   string
-	secret   []byte
-	lifetime int64
+type accessTokenEncoder struct {
+	TokenConfig
 }
 
-func NewAccessTokenEncoder(issuer string, secret []byte, lifetime int64) *AccessTokenEncoder {
-	return &AccessTokenEncoder{issuer, secret, lifetime}
+func newAccessTokenEncoder(c TokenConfig) *accessTokenEncoder {
+	return &accessTokenEncoder{c}
 }
 
-func (enc *AccessTokenEncoder) Encode(subject string, scopes []string) (string, error) {
+func (enc *accessTokenEncoder) Encode(subject string, scopes []string) (string, error) {
 	jti, err := uuid.NewRandom()
 	if err != nil {
 		return "", err
@@ -49,16 +47,16 @@ func (enc *AccessTokenEncoder) Encode(subject string, scopes []string) (string, 
 		level = 3
 	}
 	now := time.Now().Unix()
-	header := &AccessTokenJWTHeader{
+	header := &accessTokenJWTHeader{
 		Type:      "JWT",
 		Algorithm: "HS256",
 	}
-	payload := &AccessTokenJWTPayload{
-		Issuer:    enc.issuer,
+	payload := &accessTokenJWTPayload{
+		Issuer:    enc.Issuer,
 		Subject:   subject,
 		IssuedAt:  now,
 		NotBefore: now - 10,
-		ExpiresAt: now + enc.lifetime,
+		ExpiresAt: now + enc.Lifetime,
 		JWTId:     jti.String(),
 		Scopes:    scopes,
 		Authz:     level,
@@ -73,7 +71,7 @@ func (enc *AccessTokenEncoder) Encode(subject string, scopes []string) (string, 
 	}
 	headerB64 := base64.RawURLEncoding.EncodeToString(headerJson)
 	payloadB64 := base64.RawURLEncoding.EncodeToString(payloadJson)
-	mac := hmac.New(sha256.New, enc.secret)
+	mac := hmac.New(sha256.New, enc.Secret)
 	mac.Write([]byte(fmt.Sprintf("%s.%s", headerB64, payloadB64)))
 	digest := mac.Sum(nil)
 	digestB64 := base64.RawURLEncoding.EncodeToString(digest)

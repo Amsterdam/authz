@@ -88,16 +88,10 @@ func oauth20Handler(config *Config) http.Handler {
 	if err != nil {
 		log.Fatal(err)
 	}
-	// Create accesstoken encoder
-	atEnc := handler.NewAccessTokenEncoder(
-		config.AccessToken.Issuer,
-		[]byte(config.AccessToken.Secret),
-		config.AccessToken.Lifetime,
-	)
 	// Clients
 	clients := config.Client
 	// Create OAuth 2.0 resource handlers
-	oauth20Handler, err := handler.NewOAuth20Handler(baseURL, clients, idps, authzProvider, atEnc, store)
+	oauth20Handler, err := handler.NewOAuth20Handler(baseURL, []byte(config.AccessToken.Secret), config.AccessToken.LifeTime, clients, idps, authzProvider, store)
 	if err != nil {
 		log.Fatal(err)
 	}

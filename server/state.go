@@ -1,11 +1,11 @@
-package handler
+package server
 
 import (
 	"bytes"
 	"encoding/gob"
 )
 
-type AuthorizationState struct {
+type authorizationState struct {
 	ClientId     string
 	RedirectURI  string
 	ResponseType string
@@ -14,8 +14,8 @@ type AuthorizationState struct {
 	IdPData      []byte
 }
 
-func DecodeAuthorizationState(encoded string) (*AuthorizationState, error) {
-	var state AuthorizationState
+func unmarshallAuthorizationState(encoded string) (*authorizationState, error) {
+	var state authorizationState
 	data := bytes.NewBufferString(encoded)
 	dec := gob.NewDecoder(data)
 	if err := dec.Decode(&state); err != nil {
@@ -24,7 +24,7 @@ func DecodeAuthorizationState(encoded string) (*AuthorizationState, error) {
 	return &state, nil
 }
 
-func (s *AuthorizationState) Encode() (string, error) {
+func marshallAuthorizationState(s *authorizationState) (string, error) {
 	var data bytes.Buffer
 	enc := gob.NewEncoder(&data)
 	if err := enc.Encode(s); err != nil {
