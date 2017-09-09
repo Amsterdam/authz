@@ -1,4 +1,4 @@
-package idp
+package main
 
 import (
 	"crypto/hmac"
@@ -12,38 +12,52 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DatapuntAmsterdam/goauth2/authz"
+	"github.com/DatapuntAmsterdam/goauth2/server"
 )
 
-type DatapuntJWTHeader struct {
+type jwtHeader struct {
 	Type      string `json:"typ"`
 	Algorithm string `json:"alg"`
 }
 
-type DatapuntJWTPayload struct {
+type jwtPayload struct {
 	IssuedAt  int    `json:"iat"`
 	ExpiresAt int64  `json:"exp"`
 	Subject   string `json:"sub"`
 }
 
-type DatapuntHalAccount struct {
-	Etag  string           `json:"_etag"`
-	Links DatapuntHalLinks `json:"_links"`
+type authnHalAccount struct {
+	Etag  string        `json:"_etag"`
+	Links authnHalLinks `json:"_links"`
 }
 
-type DatapuntHalLinks struct {
-	Self  DatapuntHalLinkItem   `json:"self"`
-	Roles []DatapuntHalLinkItem `json:"role"`
+type authnHalLinks struct {
+	Self  authnHalLinkItem   `json:"self"`
+	Roles []authnHalLinkItem `json:"role"`
 }
 
-type DatapuntHalLinkItem struct {
+type authnHalLinkItem struct {
 	HREF  string `json:"href"`
 	Name  string `json:"name"`
 	Title string `json:"title"`
 }
 
+// datapuntUser is an account at the datapunt idp
+type datapuntUser struct {
+	uid   string
+	roles []string
+}
+
+func (u *datapuntUser) UID() string {
+	return u.uid
+}
+
+func (u *datapuntUser) Roles() []string {
+	return u.roles
+}
+
 // An IdP implementation of the Datapunt IdP.
-type DatapuntIdP struct {
+type datapuntIdP struct {
 	baseURL     string
 	accountsURL *url.URL
 	secret      []byte
@@ -51,40 +65,18 @@ type DatapuntIdP struct {
 }
 
 // Constructor. Validating its config and creates the instance.
-func NewDatapuntIdP(config interface{}) (*DatapuntIdP, error) {
-	if dpConfig, ok := config.(map[string]interface{}); ok {
-		var baseURL, secret string
-		var accountsURL *url.URL
-		if baseURL, ok = dpConfig["url"].(string); !ok {
-			return nil, errors.New("Missing or invalid base URL in Datapunt IdP configuration")
-		}
-		if secret, ok = dpConfig["secret"].(string); !ok {
-			return nil, errors.New("Missing or invalid secret in Datapunt IdP configuration")
-		}
-		if len(secret) <= 15 {
-			return nil, errors.New("Secret in Datapunt IdP configuration must be at least 15 characters long")
-		}
-		if accountsURLstr, ok := dpConfig["accounts-url"].(string); ok {
-			if u, err := url.Parse(accountsURLstr); err != nil {
-				return nil, errors.New("Invalid accounts URL for Datapunt IdP")
-			} else {
-				accountsURL = u
-			}
-		} else {
-			return nil, errors.New("Missing or invalid accounts URL in Datapunt IdP configuration")
-		}
-		return &DatapuntIdP{
-			baseURL,
-			accountsURL,
-			[]byte(secret),
-			&http.Client{Timeout: 1 * time.Second},
+func newDatapuntIdP(baseURL string, accountsURL string, secret string) (*datapuntIdP, error) {
+	if accURL, err := url.Parse(accountsURL); err != nil {
+		return nil, errors.New("Invalid accounts URL for Datapunt IdP")
+	} else {
+		return &datapuntIdP{
+			baseURL, accURL, []byte(secret), &http.Client{Timeout: 1 * time.Second},
 		}, nil
 	}
-	return nil, errors.New("Invalid Datapunt IdP configuration")
 }
 
 // Generate the Authentication redirect.
-func (d *DatapuntIdP) AuthnRedirect(callbackURL *url.URL) (*url.URL, []byte, error) {
+func (d *datapuntIdP) AuthnRedirect(callbackURL *url.URL) (*url.URL, []byte, error) {
 	var (
 		baseURL *url.URL
 		err     error
@@ -102,7 +94,7 @@ func (d *DatapuntIdP) AuthnRedirect(callbackURL *url.URL) (*url.URL, []byte, err
 }
 
 // User returns a User and the original opaque token.
-func (d *DatapuntIdP) User(r *http.Request, state []byte) (*authz.User, error) {
+func (d *datapuntIdP) User(r *http.Request, state []byte) (server.User, error) {
 	q := r.URL.Query()
 	if token, ok := q["aselect_credentials"]; ok {
 		tokenPayload, err := d.jwtPayload(token[0])
@@ -114,12 +106,12 @@ func (d *DatapuntIdP) User(r *http.Request, state []byte) (*authz.User, error) {
 	return nil, errors.New("Invalid reply")
 }
 
-func (d *DatapuntIdP) jwtPayload(token string) (*DatapuntJWTPayload, error) {
+func (d *datapuntIdP) jwtPayload(token string) (*jwtPayload, error) {
 	parts := strings.Split(token, ".")
 	if len(parts) == 3 {
 		var (
-			header  DatapuntJWTHeader
-			payload DatapuntJWTPayload
+			header  jwtHeader
+			payload jwtPayload
 		)
 		b64header, b64payload, b64digest := parts[0], parts[1], parts[2]
 		// Decode and verify the header
@@ -163,7 +155,7 @@ func (d *DatapuntIdP) jwtPayload(token string) (*DatapuntJWTPayload, error) {
 	return nil, errors.New("Invalid credentials: token doesn't have 3 parts")
 }
 
-func (d *DatapuntIdP) user(uid string) (*authz.User, error) {
+func (d *datapuntIdP) user(uid string) (server.User, error) {
 	accountURL, err := d.accountsURL.Parse(uid)
 	if err != nil {
 		return nil, err
@@ -177,15 +169,15 @@ func (d *DatapuntIdP) user(uid string) (*authz.User, error) {
 		msg := fmt.Sprintf("Unexpected response code from Datapunt IdP when requesting roles: %s\n", resp.Status)
 		return nil, errors.New(msg)
 	}
-	var account DatapuntHalAccount
+	var account authnHalAccount
 	dec := json.NewDecoder(resp.Body)
 	if err := dec.Decode(&account); err != nil {
 		return nil, err
 	}
 	// Create User
-	u := &authz.User{Uid: uid}
+	var roles []string
 	for _, role := range account.Links.Roles {
-		u.Roles = append(u.Roles, role.Name)
+		roles = append(roles, role.Name)
 	}
-	return u, nil
+	return &datapuntUser{uid, roles}, nil
 }

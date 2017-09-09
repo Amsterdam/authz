@@ -3,107 +3,93 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
-	"net"
-	"net/http"
 	"net/url"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 
-	"github.com/DatapuntAmsterdam/goauth2/authz"
-	"github.com/DatapuntAmsterdam/goauth2/handler"
-	"github.com/DatapuntAmsterdam/goauth2/idp"
-	"github.com/DatapuntAmsterdam/goauth2/storage"
+	"github.com/DatapuntAmsterdam/goauth2/server"
 )
 
 func main() {
 	// Load configuration
-	config := config()
+	conf := conf()
+	// Create server options
+	options := options(conf)
+	// Create server
+	srvr, err := server.New(options...)
+	if err != nil {
+		log.Fatal(err)
+	}
 	// Create error and signal channels
 	errorChan := make(chan error)
 	signalChan := make(chan os.Signal, 1)
-	// Start the OAuth 2.0 server
-	go serveOAuth20(config, errorChan)
 	// Register signals
 	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
+	// Start the OAuth 2.0 server
+	go srvr.Start(conf.BindAddress, errorChan)
+	defer srvr.Close()
 	// Block until one of the signals above is received
-	log.Print("Service started.")
+	log.Print("INFO: Service started.")
 	for {
 		select {
 		case err := <-errorChan:
 			log.Print(err)
 		case <-signalChan:
-			log.Print("Signal received, shutting down.")
+			log.Print("INFO: Signal received, shutting down.")
 			return
 		}
 	}
 	// Done. Stopping.
-	log.Print("Service stopped")
+	log.Print("INFO: Service stopped")
 }
 
 // configuration returns the service configuration
-func config() *Config {
+func conf() *config {
 	var configPath = flag.String("config", "", "Path to a configuration file.")
 	flag.Parse()
-	config, err := LoadConfig(*configPath)
+	conf, err := LoadConfig(*configPath)
 	if err != nil {
 		log.Fatal(err)
 	}
-	return config
+	return conf
 }
 
-// serveOAuth20 creates a TCP listener and the http.Handler and starts the HTTP server.
-func serveOAuth20(config *Config, errCh chan error) {
-	handler := oauth20Handler(config)
-	listener := listener(config)
-	defer listener.Close()
-	err := http.Serve(listener, handler)
-	if err != nil && !strings.Contains(err.Error(), "closed") {
-		errCh <- fmt.Errorf("listener failed: addr=%s, err=%s", listener.Addr(), err)
+func options(conf *config) []server.Option {
+	var options []server.Option
+	// Check base url
+	if conf.BaseURL != "" {
+		if u, err := url.Parse(conf.BaseURL); err != nil {
+			log.Fatal(err)
+		} else {
+			options = append(options, server.BaseURL(*u))
+		}
 	}
-}
-
-// oauth20Handler creates a http.Handler and registers all resource / method handlers.
-func oauth20Handler(config *Config) http.Handler {
-	// Parse base URL
-	baseURL, err := url.Parse(config.URL)
-	if err != nil {
-		log.Fatal(err)
+	// Check authentication provider
+	if (conf.Authn != authnConfig{}) {
+		if idp, err := newDatapuntIdP(
+			conf.Authn.BaseURL, conf.Authn.AccountsURL, conf.Authn.Secret,
+		); err != nil {
+			log.Fatal(err)
+		} else {
+			options = append(options, server.IdP("datapunt", idp))
+		}
 	}
-	// Create Storage
-	store, err := storage.Load(config.Storage)
-	if err != nil {
-		log.Fatal(err)
+	// Check authorization provider
+	if (conf.Authz != authzConfig{}) {
+		if authz, err := newDatapuntAuthz(conf.Authz.BaseURL); err != nil {
+			log.Fatal(err)
+		} else {
+			options = append(options, server.AuthzProvider(authz))
+		}
 	}
-	// Create the IdP map
-	idps, err := idp.Load(config.IdP)
-	if err != nil {
-		log.Fatal(err)
+	// Check storage provider
+	if (conf.Redis != redisConfig{}) {
+		r := newRedisStorage(conf.Redis.Address, conf.Redis.Password)
+		options = append(options, server.Storage(r))
 	}
-	// Create scope set
-	authzProvider, err := authz.Load(config.Authz)
-	if err != nil {
-		log.Fatal(err)
-	}
-	// Clients
-	clients := config.Client
-	// Create OAuth 2.0 resource handlers
-	oauth20Handler, err := handler.NewOAuth20Handler(baseURL, []byte(config.AccessToken.Secret), config.AccessToken.LifeTime, clients, idps, authzProvider, store)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return oauth20Handler
-}
-
-// listener creates a net.Listener.
-func listener(config *Config) net.Listener {
-	listener, err := net.Listen("tcp", config.BindAddress)
-	if err != nil {
-		log.Fatal(err)
-	}
-	log.Printf("Listening on %s", config.BindAddress)
-	return listener
+	// Add all configured clients
+	options = append(options, server.Clients(conf.Clients))
+	return options
 }

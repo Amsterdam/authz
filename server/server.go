@@ -3,6 +3,8 @@ package server
 import (
 	"errors"
 	"fmt"
+	"log"
+	"math/rand"
 	"net"
 	"net/http"
 	"net/url"
@@ -21,7 +23,7 @@ type Server struct {
 	store     TransientStorage
 	authz     Authz
 	authn     map[string]Authn
-	clientMap map[string]Client
+	clientMap ClientMap
 
 	// Concurrency control
 	clientMutex sync.RWMutex
@@ -31,12 +33,34 @@ type Server struct {
 
 // Create a new Server.
 func New(options ...Option) (*Server, error) {
-	s := &Server{}
-	// First we set defaults
+	s := &Server{authn: make(map[string]Authn)}
+	// First we set options
 	for _, option := range options {
 		if err := option(s); err != nil {
 			return nil, err
 		}
+	}
+	// Set default accesstoken config if not set
+	if s.accessTokenEnc == nil {
+		log.Println("WARN: accesstoken config missing, using random secret.")
+		secret := make([]byte, 16)
+		rand.Read(secret)
+		s.accessTokenEnc = newAccessTokenEncoder(secret, 36000, "goauth2")
+	}
+	// Set default transient store if none given
+	if s.store == nil {
+		log.Println("WARN: Using in-memory transient storage")
+		s.store = make(transientMap)
+	}
+	// Set default scopeset if no authz provider is given
+	if s.authz == nil {
+		log.Println("WARN: using empty scope set")
+		s.authz = &emptyScopeSet{}
+	}
+	// Set anonymous IdP if none is set
+	if len(s.authn) == 0 {
+		log.Println("WARN: using anonymous authentication")
+		s.authn["anonymous"] = &anonymousIdP{}
 	}
 	s.initialized = true
 	return s, nil
@@ -46,17 +70,30 @@ func New(options ...Option) (*Server, error) {
 // the first.
 func (s *Server) Start(bindAddr string, errChan chan error) {
 	s.once.Do(func() {
+		// Create listener
 		if listener, err := net.Listen("tcp", bindAddr); err != nil {
 			errChan <- err
 			return
 		} else {
 			s.listener = listener
 		}
+		// Set baseURL to http://listener.addr/ if it isn't set
+		if (s.baseURL == url.URL{}) {
+			addr := fmt.Sprintf("http://%s/", s.listener.Addr().String())
+			if u, err := url.Parse(addr); err != nil {
+				errChan <- err
+				return
+			} else {
+				s.baseURL = *u
+			}
+		}
+		// Create handler
 		handler, err := s.handler()
 		if err != nil {
 			errChan <- err
 			return
 		}
+		// Start server
 		err = http.Serve(s.listener, handler)
 		if err != nil && !strings.Contains(err.Error(), "closed") {
 			errChan <- err
@@ -67,24 +104,6 @@ func (s *Server) Start(bindAddr string, errChan chan error) {
 // Close() closes the listener.
 func (s *Server) Close() error {
 	return s.listener.Close()
-}
-
-// RegisterClient will add a Client to this server. Safe to call while a server
-// is already running. If Client.Id() already exists it will be overwritten.
-func (s *Server) RegisterClient(c Client) {
-	s.clientMutex.Lock()
-	defer s.clientMutex.Unlock()
-	s.clientMap[c.Id()] = c
-}
-
-// getClient() returns the client for this clientId or an error.
-func (s *Server) client(clientId string) (Client, error) {
-	s.clientMutex.RLock()
-	defer s.clientMutex.RUnlock()
-	if c, ok := s.clientMap[clientId]; ok {
-		return c, nil
-	}
-	return nil, fmt.Errorf("Unknown client id: %s", clientId)
 }
 
 // handler() creates the request handler for the server.
@@ -150,24 +169,23 @@ type Authz interface {
 	ScopeSetFor(u User) ScopeSet
 }
 
-// The Client interface is implemented for OAuth 2.0 clients and used to
-// authenticate and validate client data provided in all authorization flows.
-type Client interface {
-	// Returns the unique client identifier for this client.
-	Id() string
-	// Returns all redirects registered for this client.
-	Redirects() []string
-	// Returns the client secret associated with this client.
-	Secret() string
-	// Returns the allowed grant type for this client.
-	GrantType() string
+// The Client type contains all data needed for OAuth 2.0 clients.
+type Client struct {
+	// Client identifier
+	Id string
+	// list of registered redirects
+	Redirects []string
+	// client secret
+	Secret string
+	// Allowed grants (implicit, authz code, client credentials)
+	GrantType string
 }
 
-// TokenConfig holds all configuration properties for JWT-based tokens.
-type TokenConfig struct {
-	Lifetime int64
-	Secret   []byte
-	Issuer   string
+// The ClientMap interface is implemented for OAuth 2.0 clients and used to
+// authenticate and validate client data provided in all authorization flows.
+type ClientMap interface {
+	// Returns the client for this identifier or an error
+	Get(id string) (*Client, error)
 }
 
 // An option is a server option that can be passed to New().
@@ -199,6 +217,18 @@ func Storage(store TransientStorage) Option {
 	}
 }
 
+// Clients() is an option that sets the given client mapping for the server
+// instance.
+func Clients(m ClientMap) Option {
+	return func(s *Server) error {
+		if s.initialized {
+			return errors.New("Given server already initialized")
+		}
+		s.clientMap = m
+		return nil
+	}
+}
+
 // AuthzProvider() is an option that sets the given authorization provider for
 // the server instance.
 func AuthzProvider(p Authz) Option {
@@ -212,12 +242,12 @@ func AuthzProvider(p Authz) Option {
 }
 
 // AccessTokenConfig() is an option that configures access token JWTs.
-func AccessTokenConfig(c TokenConfig) Option {
+func AccessTokenConfig(secret []byte, lifetime int64, issuer string) Option {
 	return func(s *Server) error {
 		if s.initialized {
 			return errors.New("Can only call SetAccessTokenConfig as an option to New(...)")
 		}
-		s.accessTokenEnc = newAccessTokenEncoder(c)
+		s.accessTokenEnc = newAccessTokenEncoder(secret, lifetime, issuer)
 		return nil
 	}
 }

@@ -14,7 +14,7 @@ var grants = map[string]struct{}{
 }
 
 type authorizationHandler struct {
-	clients map[string]Client
+	clients ClientMap
 	authz   Authz
 	idps    map[string]*idpHandler
 }
@@ -36,7 +36,7 @@ func (h *authorizationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	}
 	var (
 		query       = r.URL.Query()
-		client      Client
+		client      *Client
 		state       string
 		scopes      []string
 		idpHandler  *idpHandler
@@ -44,27 +44,30 @@ func (h *authorizationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	)
 	// Validate client_id
 	if clientId, ok := query["client_id"]; ok {
-		if c, ok := h.clients[clientId[0]]; ok {
+		if c, err := h.clients.Get(clientId[0]); err != nil {
 			client = c
+		} else {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("invalid client_id"))
+			return
 		}
-	}
-	if client == nil {
+	} else {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("missing or invalid client_id"))
+		w.Write([]byte("missing client_id"))
 		return
 	}
 
 	// Validate redirect URI
 	var redirect string
 	if redir, ok := query["redirect_uri"]; ok {
-		for _, r := range client.Redirects() {
+		for _, r := range client.Redirects {
 			if redir[0] == r {
 				redirect = r
 				break
 			}
 		}
-	} else if len(client.Redirects()) == 1 {
-		redirect = client.Redirects()[0]
+	} else if len(client.Redirects) == 1 {
+		redirect = client.Redirects[0]
 	}
 	if redirect == "" {
 		w.WriteHeader(http.StatusBadRequest)
@@ -85,7 +88,7 @@ func (h *authorizationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		h.errorResponse(w, redirectURI, "invalid_request", "response_type missing")
 		return
 	}
-	if responseType[0] != client.GrantType() {
+	if responseType[0] != client.GrantType {
 		h.errorResponse(w, redirectURI, "unsupported_response_type", "response_type not supported for client")
 		return
 	}
@@ -128,9 +131,9 @@ func (h *authorizationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 
 	// Redirect the user to her IdP
 	if u, err := idpHandler.url(&authorizationState{
-		ClientId:     client.Id(),
+		ClientId:     client.Id,
 		RedirectURI:  redirectURI.String(),
-		ResponseType: client.GrantType(),
+		ResponseType: client.GrantType,
 		Scope:        scopes,
 		State:        state,
 	}); err != nil {

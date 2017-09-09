@@ -3,9 +3,5 @@
 
 # except a few
 !*.go
-!handler
-!client
-!storage
-!idp
-!authz
+!server
 !Godeps

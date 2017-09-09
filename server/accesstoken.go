@@ -29,11 +29,13 @@ type accessTokenJWTPayload struct {
 }
 
 type accessTokenEncoder struct {
-	TokenConfig
+	Secret   []byte
+	Lifetime int64
+	Issuer   string
 }
 
-func newAccessTokenEncoder(c TokenConfig) *accessTokenEncoder {
-	return &accessTokenEncoder{c}
+func newAccessTokenEncoder(secret []byte, lifetime int64, issuer string) *accessTokenEncoder {
+	return &accessTokenEncoder{secret, lifetime, issuer}
 }
 
 func (enc *accessTokenEncoder) Encode(subject string, scopes []string) (string, error) {

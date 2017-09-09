@@ -1,4 +1,4 @@
-package storage
+package main
 
 import (
 	"log"
@@ -7,27 +7,11 @@ import (
 	"github.com/garyburd/redigo/redis"
 )
 
-const (
-	DefaultRedisAddress = ":6379"
-)
-
-type RedisStorage struct {
+type redisStorage struct {
 	pool *redis.Pool
 }
 
-func NewRedisStorage(config interface{}) (*RedisStorage, error) {
-	address := DefaultRedisAddress
-	password := ""
-	if redisConf, ok := config.(map[string]interface{}); ok {
-		if addr, ok := redisConf["address"].(string); ok {
-			if len(address) > 0 {
-				address = addr
-			}
-		}
-		if pwd, ok := redisConf["password"].(string); ok {
-			password = pwd
-		}
-	}
+func newRedisStorage(address string, password string) *redisStorage {
 	// Create a Redis connectionpool
 	pool := &redis.Pool{
 		MaxIdle:     3,
@@ -56,19 +40,19 @@ func NewRedisStorage(config interface{}) (*RedisStorage, error) {
 			return err
 		},
 	}
-	log.Println("Created Redis back-end storage")
-	return &RedisStorage{pool}, nil
+	log.Println("INFO: Using Redis as transient storage")
+	return &redisStorage{pool}
 }
 
 // Save data in Redis
-func (s *RedisStorage) Set(key string, value string, expireIn int) error {
+func (s *redisStorage) Set(key string, value string, expireIn int) error {
 	conn := s.pool.Get()
 	defer conn.Close()
 	_, err := conn.Do("SET", key, value, "EX", expireIn)
 	return err
 }
 
-func (s *RedisStorage) Get(key string) (string, error) {
+func (s *redisStorage) Get(key string) (string, error) {
 	conn := s.pool.Get()
 	defer conn.Close()
 	return redis.String(conn.Do("GET", key))
