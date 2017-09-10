@@ -3,8 +3,8 @@
 bind-address = ":8080"
 # Bind address for the HTTP service
 
-url = "http://localhost:8080/"
-# Base URL of the service.
+# url = 
+# Base URL of the service. Defaults to http://[bind-address]/.
 
 [accesstoken]
 secret = "makemehardtoguess"
@@ -15,41 +15,27 @@ issuer = "http://localhost:8080/authorize"
 # Identifier of the token issuer (e.g. URI of authorizatuon endpoint)
 
 
-[storage]
-# Storage backend configuration.
-# * If none is enabled the built-in in-memory storage backend will be used.
-#   This back-end should only be used in single-instance deployments.
-# * If more than one is enabled then the server will refuse to start.
-
-  ## Connection params for Redis. An empty password won't AUTH.
-  # [storage.redis]
-  # address = ":6379"
-  # password = ""
+# [redis]
+## Connection params for Redis. An empty password won't AUTH.
+# address = ":6379"
+# password = ""
 
 
-[idp]
-# IdP configuration.
-# * If none is enabled the built-in anonymous IdP will be used. This IdP should
-#   only be used for testing.
-
-  # [idp.datapunt]
-  # url = "https://api.data.amsterdam.nl/auth/idp/login"
-  # secret = "atleast16characters"
-  # roles-url = "https://acc.api.data.amsterdam.nl/authz_admin/accounts/"
+# [authentication]
+## IdP configuration
+# base-url = "https://acc.api.data.amsterdam.nl/auth/idp/login"
+# secret = "sharedsecret"
+# roles-url = "https://acc.api.data.amsterdam.nl/authz_admin/accounts/"
 
 
-[client]
+[clients]
 # OAuth 2.0 clients. Require client-id, granttype and redirects.
 
-  [client."citydata-data.amsterdam.nl"]
-  redirects = ["http://localhost:8080/"]
-  granttype = "token"  # "code" | "token" | "client_credentials"
+[clients."citydata-data.amsterdam.nl"]
+redirects = ["http://localhost:8080/"]
+granttype = "token"  # "code" | "token" | "client_credentials"
 
-
-[authorization]
+# [authorization]
 # Authorization configuration.
-
-  [authorization.datapunt]
-  # Schemaless optional configuration for our authz provider.
-  base-url = "https://acc.api.data.amsterdam.nl/authz_admin/"
+# base-url = "https://acc.api.data.amsterdam.nl/authz_admin/"
 

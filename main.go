@@ -31,7 +31,7 @@ func main() {
 	go srvr.Start(conf.BindAddress, errorChan)
 	defer srvr.Close()
 	// Block until one of the signals above is received
-	log.Print("INFO: Service started.")
+	log.Printf("INFO: Service started on %s.\n", conf.BindAddress)
 	for {
 		select {
 		case err := <-errorChan:
@@ -91,5 +91,14 @@ func options(conf *config) []server.Option {
 	}
 	// Add all configured clients
 	options = append(options, server.Clients(conf.Clients))
+	// Add access token config
+	if (conf.Accesstoken != accessTokenConfig{}) {
+		a := server.AccessTokenConfig(
+			[]byte(conf.Accesstoken.Secret),
+			conf.Accesstoken.Lifetime,
+			conf.Accesstoken.Issuer,
+		)
+		options = append(options, a)
+	}
 	return options
 }

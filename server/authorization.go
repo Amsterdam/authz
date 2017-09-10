@@ -44,7 +44,7 @@ func (h *authorizationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	)
 	// Validate client_id
 	if clientId, ok := query["client_id"]; ok {
-		if c, err := h.clients.Get(clientId[0]); err != nil {
+		if c, err := h.clients.Get(clientId[0]); err == nil {
 			client = c
 		} else {
 			w.WriteHeader(http.StatusBadRequest)
