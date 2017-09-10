@@ -57,6 +57,11 @@ func New(options ...Option) (*Server, error) {
 		log.Println("WARN: using empty scope set")
 		s.authz = &emptyScopeSet{}
 	}
+	// Set default clientmap if no ClientMap is given
+	if s.clientMap == nil {
+		log.Println("WARN: using empty client map")
+		s.clientMap = &emptyClientMap{}
+	}
 	// Set anonymous IdP if none is set
 	if len(s.authn) == 0 {
 		log.Println("WARN: using anonymous authentication")
