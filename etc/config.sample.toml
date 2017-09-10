@@ -3,7 +3,7 @@
 bind-address = ":8080"
 # Bind address for the HTTP service
 
-# url = 
+# base-url = 
 # Base URL of the service. Defaults to http://[bind-address]/.
 
 [accesstoken]
