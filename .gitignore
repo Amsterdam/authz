@@ -1,5 +1,8 @@
 # the goauth2 binary
 goauth2
 
+# fuzz zips
+*-fuzz.zip
+
 # test config
 config.toml
