@@ -1,7 +1,9 @@
 ### OAuth 2.0 service configuration file
 
-bind-address = ":8080"
-# Bind address for the HTTP service
+# bind-host = ""
+## Bind to host for the HTTP service (default 0.0.0.0)
+# bind-port = 8080
+## Bind to this port (default 8080)
 
 # base-url = 
 # Base URL of the service. Defaults to http://[bind-address]/.

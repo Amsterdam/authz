@@ -89,11 +89,11 @@ func (s *datapuntAuthz) ValidScope(scope ...string) bool {
 	return s.allScopes.ValidScope(scope...)
 }
 
-func (s *datapuntAuthz) ScopeSetFor(u server.User) server.ScopeSet {
+func (s *datapuntAuthz) ScopeSetFor(u *server.User) server.ScopeSet {
 	scopeSet := make(datapuntScopeSet)
 	s.roleLock.RLock()
 	defer s.roleLock.RUnlock()
-	for _, role := range u.Roles() {
+	for _, role := range u.Roles {
 		for _, scope := range s.roleMap[role] {
 			scopeSet[scope] = struct{}{}
 		}

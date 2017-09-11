@@ -18,7 +18,7 @@ func main() {
 	// Create server options
 	options := options(conf)
 	// Create server
-	srvr, err := server.New(options...)
+	srvr, err := server.New(conf.BindHost, conf.BindPort, options...)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -28,10 +28,10 @@ func main() {
 	// Register signals
 	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
 	// Start the OAuth 2.0 server
-	go srvr.Start(conf.BindAddress, errorChan)
+	go srvr.Start(errorChan)
 	defer srvr.Close()
 	// Block until one of the signals above is received
-	log.Printf("INFO: Service started on %s.\n", conf.BindAddress)
+	log.Printf("INFO: Service started on %s:%d.\n", conf.BindHost, conf.BindPort)
 	for {
 		select {
 		case err := <-errorChan:

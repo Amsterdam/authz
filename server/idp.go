@@ -74,7 +74,7 @@ func (i *idpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			grantedScopes = append(grantedScopes, scope)
 		}
 	}
-	accessToken, err := i.tokenEncoder.Encode(user.UID(), grantedScopes)
+	accessToken, err := i.tokenEncoder.Encode(user.UID, grantedScopes)
 	if err != nil {
 		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)

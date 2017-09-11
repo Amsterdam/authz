@@ -4,7 +4,7 @@ package server
 type emptyScopeSet struct{}
 
 // emptyScopeSet returns a refernce to itself for all users.
-func (p *emptyScopeSet) ScopeSetFor(u User) ScopeSet {
+func (p *emptyScopeSet) ScopeSetFor(u *User) ScopeSet {
 	return p
 }
 

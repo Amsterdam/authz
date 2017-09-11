@@ -15,6 +15,10 @@ import (
 type Server struct {
 	baseURL  url.URL
 	listener net.Listener
+	bindAddr string
+
+	// handler is saved so it can be inspected
+	handler http.Handler
 
 	// Components / interfaces
 	accessTokenEnc *accessTokenEncoder
@@ -32,7 +36,7 @@ type Server struct {
 }
 
 // Create a new Server.
-func New(options ...Option) (*Server, error) {
+func New(bindHost string, bindPort int, options ...Option) (*Server, error) {
 	s := &Server{authn: make(map[string]Authn)}
 	// First we set options
 	for _, option := range options {
@@ -67,43 +71,52 @@ func New(options ...Option) (*Server, error) {
 		log.Println("WARN: using anonymous authentication")
 		s.authn["anonymous"] = &anonymousIdP{}
 	}
+	// Options are done
 	s.initialized = true
+
+	// Save bindaddr
+	s.bindAddr = fmt.Sprintf("%s:%d", bindHost, bindPort)
+
+	// Set baseURL to http://localhost:[bindPort]/ if it isn't set
+	if (s.baseURL == url.URL{}) {
+		addr := fmt.Sprintf("http://localhost:%d/", bindPort)
+		if u, err := url.Parse(addr); err != nil {
+			log.Fatal(err)
+		} else {
+			s.baseURL = *u
+		}
+	}
+	// Create handler
+	if handler, err := s.oauth20handler(); err != nil {
+		log.Fatal(err)
+	} else {
+		s.handler = handler
+	}
 	return s, nil
 }
 
 // Start() runs the server and reports errors. Ignores subsequent calls after
 // the first.
-func (s *Server) Start(bindAddr string, errChan chan error) {
+func (s *Server) Start(errChan chan error) {
 	s.once.Do(func() {
 		// Create listener
-		if listener, err := net.Listen("tcp", bindAddr); err != nil {
+		if listener, err := net.Listen("tcp", s.bindAddr); err != nil {
 			errChan <- err
 			return
 		} else {
 			s.listener = listener
 		}
-		// Set baseURL to http://listener.addr/ if it isn't set
-		if (s.baseURL == url.URL{}) {
-			addr := fmt.Sprintf("http://%s/", s.listener.Addr().String())
-			if u, err := url.Parse(addr); err != nil {
-				errChan <- err
-				return
-			} else {
-				s.baseURL = *u
-			}
-		}
-		// Create handler
-		handler, err := s.handler()
-		if err != nil {
-			errChan <- err
-			return
-		}
 		// Start server
-		err = http.Serve(s.listener, handler)
+		err := http.Serve(s.listener, s.handler)
 		if err != nil && !strings.Contains(err.Error(), "closed") {
 			errChan <- err
 		}
 	})
+}
+
+// Handler() returns the server's handler
+func (s *Server) Handler() http.Handler {
+	return s.handler
 }
 
 // Close() closes the listener.
@@ -111,8 +124,8 @@ func (s *Server) Close() error {
 	return s.listener.Close()
 }
 
-// handler() creates the request handler for the server.
-func (s *Server) handler() (http.Handler, error) {
+// oauth20handler() creates the request handler for the server.
+func (s *Server) oauth20handler() (http.Handler, error) {
 	mux := http.NewServeMux()
 	idps := make(map[string]*idpHandler)
 	pathTempl := "authorize/%s"
@@ -142,11 +155,11 @@ type TransientStorage interface {
 
 // Interface User is implemented by identity providers and used by
 // authorization providers.
-type User interface {
-	// UID() returns the user identifier.
-	UID() string
-	// Roles() returns a slice of roles associated with this user.
-	Roles() []string
+type User struct {
+	// UID is the user identifier.
+	UID string
+	// Roles is a slice of roles associated with this user.
+	Roles []string
 }
 
 // Interface Authn is implemented by identity providers.
@@ -156,7 +169,7 @@ type Authn interface {
 	AuthnRedirect(callbackURL *url.URL) (*url.URL, []byte, error)
 	// User receives the IdP's callback request and returns a User object or
 	// an error.
-	User(r *http.Request, state []byte) (User, error)
+	User(r *http.Request, state []byte) (*User, error)
 }
 
 // The ScopeSet interface is implemented by authorization providers to allow
@@ -171,7 +184,7 @@ type ScopeSet interface {
 type Authz interface {
 	ScopeSet
 	// ScopeSetFor() returns the given user's authorized scopeset.
-	ScopeSetFor(u User) ScopeSet
+	ScopeSetFor(u *User) ScopeSet
 }
 
 // The Client type contains all data needed for OAuth 2.0 clients.

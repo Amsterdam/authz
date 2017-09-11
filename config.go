@@ -10,12 +10,14 @@ import (
 )
 
 const (
-	defaultBindAddress = ":8080"
+	defaultBindHost = ""
+	defaultBindPort = 8080
 )
 
 // Config represents the configuration format for the server.
 type config struct {
-	BindAddress string            `toml:"bind-address"`
+	BindHost    string            `toml:"bind-host"`
+	BindPort    int               `toml:"bind-port"`
 	BaseURL     string            `toml:"base-url"`
 	Authn       authnConfig       `toml:"authentication"`
 	Clients     clientMap         `toml:"clients"`
@@ -72,7 +74,8 @@ func (m clientMap) Get(id string) (*server.Client, error) {
 // LoadConfig returns an instance of Config with reasonable defaults.
 func LoadConfig(configPath string) (*config, error) {
 	config := &config{
-		BindAddress: defaultBindAddress,
+		BindHost: defaultBindHost,
+		BindPort: defaultBindPort,
 	}
 	if configPath == "" {
 		log.Print("No configfile path given, using defaults")

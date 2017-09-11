@@ -42,20 +42,6 @@ type authnHalLinkItem struct {
 	Title string `json:"title"`
 }
 
-// datapuntUser is an account at the datapunt idp
-type datapuntUser struct {
-	uid   string
-	roles []string
-}
-
-func (u *datapuntUser) UID() string {
-	return u.uid
-}
-
-func (u *datapuntUser) Roles() []string {
-	return u.roles
-}
-
 // An IdP implementation of the Datapunt IdP.
 type datapuntIdP struct {
 	baseURL     string
@@ -94,7 +80,7 @@ func (d *datapuntIdP) AuthnRedirect(callbackURL *url.URL) (*url.URL, []byte, err
 }
 
 // User returns a User and the original opaque token.
-func (d *datapuntIdP) User(r *http.Request, state []byte) (server.User, error) {
+func (d *datapuntIdP) User(r *http.Request, state []byte) (*server.User, error) {
 	q := r.URL.Query()
 	if token, ok := q["aselect_credentials"]; ok {
 		tokenPayload, err := d.jwtPayload(token[0])
@@ -155,7 +141,7 @@ func (d *datapuntIdP) jwtPayload(token string) (*jwtPayload, error) {
 	return nil, errors.New("Invalid credentials: token doesn't have 3 parts")
 }
 
-func (d *datapuntIdP) user(uid string) (server.User, error) {
+func (d *datapuntIdP) user(uid string) (*server.User, error) {
 	accountURL, err := d.accountsURL.Parse(uid)
 	if err != nil {
 		return nil, err
@@ -179,5 +165,5 @@ func (d *datapuntIdP) user(uid string) (server.User, error) {
 	for _, role := range account.Links.Roles {
 		roles = append(roles, role.Name)
 	}
-	return &datapuntUser{uid, roles}, nil
+	return &server.User{uid, roles}, nil
 }
