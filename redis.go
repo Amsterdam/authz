@@ -52,8 +52,23 @@ func (s *redisStorage) Set(key string, value string, expireIn int) error {
 	return err
 }
 
-func (s *redisStorage) Get(key string) (string, error) {
+func (s *redisStorage) GetAndRemove(key string) (string, error) {
 	conn := s.pool.Get()
 	defer conn.Close()
-	return redis.String(conn.Do("GET", key))
+	if err := conn.Send("MULTI"); err != nil {
+		return "", err
+	}
+	if err := conn.Send("GET", key); err != nil {
+		return "", err
+	}
+	if err := conn.Send("DEL", key); err != nil {
+		return "", err
+	}
+	if err := conn.Send("EXEC"); err != nil {
+		return "", err
+	}
+	if err := conn.Flush(); err != nil {
+		return "", err
+	}
+	return redis.String(conn.Receive())
 }

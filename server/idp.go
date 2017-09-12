@@ -42,7 +42,7 @@ func (i *idpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("make an authorization request first."))
 		return
 	}
-	data, err := i.store.Get(token[0])
+	data, err := i.store.GetAndRemove(token[0])
 	if err != nil {
 		log.Printf("Error fetching state token: %s\n", err)
 		w.WriteHeader(http.StatusBadRequest)

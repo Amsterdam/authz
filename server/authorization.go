@@ -42,7 +42,10 @@ func (h *authorizationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		idpHandler  *idpHandler
 		redirectURI *url.URL
 	)
-	// Validate client_id
+	/*
+		client_id
+			REQUIRED.  The client identifier as described in Section 2.2.
+	*/
 	if clientId, ok := query["client_id"]; ok {
 		if c, err := h.clients.Get(clientId[0]); err == nil {
 			client = c
@@ -57,7 +60,17 @@ func (h *authorizationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Validate redirect URI
+	/*
+		redirect_uri
+			If multiple redirection URIs have been registered, if only part of
+			the redirection URI has been registered, or if no redirection URI has
+			been registered, the client MUST include a redirection URI with the
+			authorization request using the "redirect_uri" request parameter.
+
+		The code below only does string matching so complete URLs must be registered
+		(which is suggested by the RFC: The authorization server SHOULD require the
+		client to provide the complete redirection URI).
+	*/
 	var redirect string
 	if redir, ok := query["redirect_uri"]; ok {
 		for _, r := range client.Redirects {
@@ -82,7 +95,10 @@ func (h *authorizationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		redirectURI = r
 	}
 
-	// Validate response_type
+	/*
+		response_type
+			REQUIRED.  Value MUST be set to "token".
+	*/
 	responseType, ok := query["response_type"]
 	if !ok {
 		h.errorResponse(w, redirectURI, "invalid_request", "response_type missing")
@@ -93,12 +109,32 @@ func (h *authorizationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Set state
+	/*
+		state
+			RECOMMENDED.  An opaque value used by the client to maintain
+			state between the request and callback.  The authorization
+			server includes this value when redirecting the user-agent back
+			to the client.  The parameter SHOULD be used for preventing
+			cross-site request forgery as described in Section 10.12.
+	*/
 	if s, ok := query["state"]; ok {
 		state = s[0]
 	}
 
-	// Validate scope
+	/*
+		scope
+			OPTIONAL.  The scope of the access request as described by
+			Section 3.3.
+
+			The value of the scope parameter is expressed as a list of space-
+			delimited, case-sensitive strings.  The strings are defined by the
+			authorization server.  If the value contains multiple space-delimited
+			strings, their order does not matter, and each string adds an
+			additional access range to the requested scope.
+
+				scope       = scope-token *( SP scope-token )
+				scope-token = 1*( %x21 / %x23-5B / %x5D-7E )
+	*/
 	scopeMap := make(map[string]struct{})
 	if s, ok := query["scope"]; ok {
 		for _, scope := range strings.Split(s[0], " ") {

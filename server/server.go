@@ -54,7 +54,7 @@ func New(bindHost string, bindPort int, options ...Option) (*Server, error) {
 	// Set default transient store if none given
 	if s.store == nil {
 		log.Println("WARN: Using in-memory transient storage")
-		s.store = make(transientMap)
+		s.store = newTransientMap()
 	}
 	// Set default scopeset if no authz provider is given
 	if s.authz == nil {
@@ -150,7 +150,7 @@ func (s *Server) oauth20handler() (http.Handler, error) {
 // store transient data throughout the server.
 type TransientStorage interface {
 	Set(key string, value string, expireIn int) error
-	Get(key string) (string, error)
+	GetAndRemove(key string) (string, error)
 }
 
 // Interface User is implemented by identity providers and used by
