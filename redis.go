@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"log"
 	"time"
 
@@ -64,11 +65,11 @@ func (s *redisStorage) GetAndRemove(key string) (string, error) {
 	if err := conn.Send("DEL", key); err != nil {
 		return "", err
 	}
-	if err := conn.Send("EXEC"); err != nil {
+	if vals, err := redis.Values(conn.Do("EXEC")); err != nil {
 		return "", err
+	} else if vals[0] == nil {
+		return "", errors.New("key doesnt exist")
+	} else {
+		return redis.String(vals[0], nil)
 	}
-	if err := conn.Flush(); err != nil {
-		return "", err
-	}
-	return redis.String(conn.Receive())
 }

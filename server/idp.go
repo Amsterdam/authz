@@ -51,13 +51,13 @@ func (i *idpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	state, err := unmarshallAuthorizationState(data)
 	if err != nil {
-		log.Println(err)
+		log.Printf("Error unmarshalling state: %s\n", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	redirectURI, err := url.Parse(state.RedirectURI)
 	if err != nil {
-		log.Println(err)
+		log.Printf("Error reconstructing redirect_uri from unmarshalled state: %s\n", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}

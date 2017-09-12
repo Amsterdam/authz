@@ -10,7 +10,12 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"time"
 )
+
+func init() {
+	rand.Seed(time.Now().UTC().UnixNano())
+}
 
 type Server struct {
 	baseURL  url.URL
