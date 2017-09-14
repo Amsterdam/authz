@@ -29,9 +29,9 @@ type accessTokenJWTPayload struct {
 }
 
 type accessTokenEncoder struct {
-	Secret   []byte
-	Lifetime int64
-	Issuer   string
+	secret   []byte
+	lifetime int64
+	issuer   string
 }
 
 func newAccessTokenEncoder(secret []byte, lifetime int64, issuer string) *accessTokenEncoder {
@@ -54,11 +54,11 @@ func (enc *accessTokenEncoder) Encode(subject string, scopes []string) (string, 
 		Algorithm: "HS256",
 	}
 	payload := &accessTokenJWTPayload{
-		Issuer:    enc.Issuer,
+		Issuer:    enc.issuer,
 		Subject:   subject,
 		IssuedAt:  now,
 		NotBefore: now - 10,
-		ExpiresAt: now + enc.Lifetime,
+		ExpiresAt: now + enc.lifetime,
 		JWTId:     jti.String(),
 		Scopes:    scopes,
 		Authz:     level,
@@ -73,7 +73,7 @@ func (enc *accessTokenEncoder) Encode(subject string, scopes []string) (string, 
 	}
 	headerB64 := base64.RawURLEncoding.EncodeToString(headerJson)
 	payloadB64 := base64.RawURLEncoding.EncodeToString(payloadJson)
-	mac := hmac.New(sha256.New, enc.Secret)
+	mac := hmac.New(sha256.New, enc.secret)
 	mac.Write([]byte(fmt.Sprintf("%s.%s", headerB64, payloadB64)))
 	digest := mac.Sum(nil)
 	digestB64 := base64.RawURLEncoding.EncodeToString(digest)
