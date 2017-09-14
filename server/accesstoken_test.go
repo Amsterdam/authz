@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -68,10 +69,8 @@ func TestEncode(t *testing.T) {
 	if payload.Subject != subject {
 		t.Fatalf("JWT subject doesn't match (expected: %s, got %s)", subject, payload.Subject)
 	}
-	for i, scope := range scopes {
-		if payload.Scopes[i] != scope {
-			t.Fatalf("Scopes dont match (expected: %s, got %s)", scope, payload.Scopes[i])
-		}
+	if !reflect.DeepEqual(scopes, payload.Scopes) {
+		t.Fatalf("Scopes dont match (expected: %s, got %s)", scopes, payload.Scopes)
 	}
 	if jwt2, err := enc.jwt(header, payload); err != nil {
 		t.Fatal(err)
