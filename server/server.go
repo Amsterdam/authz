@@ -73,8 +73,7 @@ func New(bindHost string, bindPort int, options ...Option) (*Server, error) {
 	}
 	// Set anonymous IdP if none is set
 	if len(s.authn) == 0 {
-		log.Println("WARN: using anonymous authentication")
-		s.authn["anonymous"] = &anonymousIdP{}
+		log.Println("WARN: no IdP registered")
 	}
 	// Options are done
 	s.initialized = true
