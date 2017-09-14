@@ -46,14 +46,14 @@ func newRedisStorage(address string, password string) *redisStorage {
 }
 
 // Save data in Redis
-func (s *redisStorage) Set(key string, value string, expireIn int) error {
+func (s *redisStorage) Persist(key string, value string, timeout time.Duration) error {
 	conn := s.pool.Get()
 	defer conn.Close()
-	_, err := conn.Do("SET", key, value, "EX", expireIn)
+	_, err := conn.Do("SET", key, value, "EX", int(timeout.Seconds()))
 	return err
 }
 
-func (s *redisStorage) GetAndRemove(key string) (string, error) {
+func (s *redisStorage) Restore(key string) (string, error) {
 	conn := s.pool.Get()
 	defer conn.Close()
 	if err := conn.Send("MULTI"); err != nil {

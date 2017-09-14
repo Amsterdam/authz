@@ -14,7 +14,7 @@ const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 type idpHandler struct {
 	Authn
-	store        TransientStorage
+	stateStore   *stateStorage
 	baseURL      *url.URL
 	authz        Authz
 	tokenEncoder *accessTokenEncoder
@@ -42,17 +42,11 @@ func (i *idpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("make an authorization request first."))
 		return
 	}
-	data, err := i.store.GetAndRemove(token[0])
-	if err != nil {
-		log.Printf("Error fetching state token: %s\n", err)
+	var state authorizationState
+	if err := i.stateStore.restore(token[0], state); err != nil {
+		log.Printf("Error restoring state token: %s\n", err)
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("invalid state token."))
-		return
-	}
-	state, err := unmarshallAuthorizationState(data)
-	if err != nil {
-		log.Printf("Error unmarshalling state: %s\n", err)
-		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	redirectURI, err := url.Parse(state.RedirectURI)
@@ -102,7 +96,7 @@ func (i *idpHandler) url(state *authorizationState) (*url.URL, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := i.store.Set(key, value, 600); err != nil {
+	if err := i.stateStore.persist(key, value); err != nil {
 		return nil, err
 	}
 	return redir, nil

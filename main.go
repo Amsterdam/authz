@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/DatapuntAmsterdam/goauth2/server"
 )
@@ -86,8 +87,9 @@ func options(conf *config) []server.Option {
 	}
 	// Check storage provider
 	if (conf.Redis != redisConfig{}) {
-		r := newRedisStorage(conf.Redis.Address, conf.Redis.Password)
-		options = append(options, server.Storage(r))
+		engine := newRedisStorage(conf.Redis.Address, conf.Redis.Password)
+		timeout := time.Duration(conf.AuthnTimeout) * time.Second
+		options = append(options, server.StateStorage(engine, timeout))
 	}
 	// Add all configured clients
 	options = append(options, server.Clients(conf.Clients))

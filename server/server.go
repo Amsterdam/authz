@@ -29,10 +29,10 @@ type Server struct {
 	accessTokenEnc *accessTokenEncoder
 
 	// Lookups / interfaces
-	store     TransientStorage
-	authz     Authz
-	authn     map[string]Authn
-	clientMap ClientMap
+	stateStore *stateStorage
+	authz      Authz
+	authn      map[string]Authn
+	clientMap  ClientMap
 
 	// Concurrency control
 	clientMutex sync.RWMutex
@@ -57,9 +57,9 @@ func New(bindHost string, bindPort int, options ...Option) (*Server, error) {
 		s.accessTokenEnc = newAccessTokenEncoder(secret, 36000, "goauth2")
 	}
 	// Set default transient store if none given
-	if s.store == nil {
-		log.Println("WARN: Using in-memory transient storage")
-		s.store = newTransientMap()
+	if s.stateStore == nil {
+		log.Println("WARN: Using in-memory state storage")
+		s.stateStore = newStateStorage(newStateMap(), 60*time.Second)
 	}
 	// Set default scopeset if no authz provider is given
 	if s.authz == nil {
@@ -139,7 +139,7 @@ func (s *Server) oauth20handler() (http.Handler, error) {
 		if u, err := s.baseURL.Parse(relPath); err != nil {
 			return nil, err
 		} else {
-			handler := &idpHandler{authn, s.store, u, s.authz, s.accessTokenEnc}
+			handler := &idpHandler{authn, s.stateStore, u, s.authz, s.accessTokenEnc}
 			mux.Handle(absPath, handler)
 			idps[idpId] = handler
 		}
@@ -150,11 +150,11 @@ func (s *Server) oauth20handler() (http.Handler, error) {
 	return mux, nil
 }
 
-// Interface TransientStorage is implemented by storage providers and used to
-// store transient data throughout the server.
-type TransientStorage interface {
-	Set(key string, value string, expireIn int) error
-	GetAndRemove(key string) (string, error)
+// Interface StateKeeper is implemented by storage engines and used to
+// store transient state data throughout the server.
+type StateKeeper interface {
+	Persist(key string, data string, lifetime time.Duration) error
+	Restore(key string) (string, error)
 }
 
 // Interface User is implemented by identity providers and used by
@@ -227,14 +227,14 @@ func BaseURL(u url.URL) Option {
 	}
 }
 
-// Storage() is an option that sets the transient storage for the server
+// StateStorage() is an option that sets the transient storage for the server
 // instance.
-func Storage(store TransientStorage) Option {
+func StateStorage(engine StateKeeper, lifetime time.Duration) Option {
 	return func(s *Server) error {
 		if s.initialized {
 			return errors.New("Given server already initialized")
 		}
-		s.store = store
+		s.stateStore = newStateStorage(engine, lifetime)
 		return nil
 	}
 }

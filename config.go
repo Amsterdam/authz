@@ -10,20 +10,22 @@ import (
 )
 
 const (
-	defaultBindHost = ""
-	defaultBindPort = 8080
+	defaultBindHost     = ""
+	defaultBindPort     = 8080
+	defaultAuthnTimeout = 600
 )
 
 // Config represents the configuration format for the server.
 type config struct {
-	BindHost    string            `toml:"bind-host"`
-	BindPort    int               `toml:"bind-port"`
-	BaseURL     string            `toml:"base-url"`
-	Authn       authnConfig       `toml:"authentication"`
-	Clients     clientMap         `toml:"clients"`
-	Authz       authzConfig       `toml:"authorization"`
-	Redis       redisConfig       `toml:"redis"`
-	Accesstoken accessTokenConfig `toml:"accesstoken"`
+	BindHost     string            `toml:"bind-host"`
+	BindPort     int               `toml:"bind-port"`
+	BaseURL      string            `toml:"base-url"`
+	AuthnTimeout int               `toml:"authn-timeout"`
+	Authn        authnConfig       `toml:"authentication"`
+	Clients      clientMap         `toml:"clients"`
+	Authz        authzConfig       `toml:"authorization"`
+	Redis        redisConfig       `toml:"redis"`
+	Accesstoken  accessTokenConfig `toml:"accesstoken"`
 }
 
 // accessToken configuration
@@ -74,8 +76,9 @@ func (m clientMap) Get(id string) (*server.Client, error) {
 // LoadConfig returns an instance of Config with reasonable defaults.
 func LoadConfig(configPath string) (*config, error) {
 	config := &config{
-		BindHost: defaultBindHost,
-		BindPort: defaultBindPort,
+		BindHost:     defaultBindHost,
+		BindPort:     defaultBindPort,
+		AuthnTimeout: defaultAuthnTimeout,
 	}
 	if configPath == "" {
 		log.Print("No configfile path given, using defaults")

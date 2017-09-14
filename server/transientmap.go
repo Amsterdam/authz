@@ -6,29 +6,29 @@ import (
 	"time"
 )
 
-type transientMap struct {
+type stateMap struct {
 	values   map[string]string
 	expiries map[string]time.Time
 	mutex    sync.Mutex
 }
 
-func newTransientMap() *transientMap {
-	return &transientMap{
+func newStateMap() *stateMap {
+	return &stateMap{
 		values:   make(map[string]string),
 		expiries: make(map[string]time.Time),
 	}
 }
 
-func (s *transientMap) Set(key string, value string, expireIn int) error {
+func (s *stateMap) Persist(key string, value string, lifetime time.Duration) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	exp := time.Now().Add(time.Duration(expireIn) * time.Second)
+	exp := time.Now().Add(lifetime)
 	s.values[key] = value
 	s.expiries[key] = exp
 	return nil
 }
 
-func (s *transientMap) GetAndRemove(key string) (result string, err error) {
+func (s *stateMap) Restore(key string) (result string, err error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	val, valOk := s.values[key]
