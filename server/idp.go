@@ -92,11 +92,7 @@ func (i *idpHandler) url(state *authorizationState) (*url.URL, error) {
 		return nil, err
 	}
 	state.IdPData = idpData
-	value, err := marshallAuthorizationState(state)
-	if err != nil {
-		return nil, err
-	}
-	if err := i.stateStore.persist(key, value); err != nil {
+	if err := i.stateStore.persist(key, state); err != nil {
 		return nil, err
 	}
 	return redir, nil
