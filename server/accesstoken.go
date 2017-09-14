@@ -63,6 +63,11 @@ func (enc *accessTokenEncoder) Encode(subject string, scopes []string) (string, 
 		Scopes:    scopes,
 		Authz:     level,
 	}
+	return enc.jwt(header, payload)
+}
+
+func (enc *accessTokenEncoder) jwt(
+	header *accessTokenJWTHeader, payload *accessTokenJWTPayload) (string, error) {
 	headerJson, err := json.Marshal(header)
 	if err != nil {
 		return "", err
