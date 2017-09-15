@@ -12,7 +12,7 @@ type authorizationState struct {
 	ResponseType string
 	Scope        []string
 	State        string
-	IdPData      []byte
+	IdPState     []byte
 }
 
 type stateStorage struct {

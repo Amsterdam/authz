@@ -14,19 +14,8 @@ var grants = map[string]struct{}{
 }
 
 type authorizationHandler struct {
-	clients ClientMap
-	authz   Authz
-	idps    map[string]*idpHandler
-}
-
-func (h *authorizationHandler) errorResponse(w http.ResponseWriter, r *url.URL, code string, desc string) {
-	query := r.Query()
-	query.Set("error", code)
-	query.Set("error_description", desc)
-	r.RawQuery = query.Encode()
-	headers := w.Header()
-	headers.Add("Location", r.String())
-	w.WriteHeader(http.StatusSeeOther)
+	*oauth20Handler
+	idps map[string]*idpHandler
 }
 
 func (h *authorizationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -165,18 +154,27 @@ func (h *authorizationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Redirect the user to her IdP
-	if u, err := idpHandler.url(&authorizationState{
+	// Create a new authentication session
+	session, err := idpHandler.newAuthnSession()
+	if err != nil {
+		h.errorResponse(w, redirectURI, "server_error", "internal server error")
+		return
+	}
+
+	// Persist state of authz request
+	reqState := &authorizationState{
 		ClientId:     client.Id,
 		RedirectURI:  redirectURI.String(),
 		ResponseType: client.GrantType,
 		Scope:        scopes,
 		State:        state,
-	}); err != nil {
-		log.Printf("ERROR: %s\n", err)
-		h.errorResponse(w, redirectURI, "server_error", "could not redirect to idp")
-	} else {
-		w.Header().Set("Location", u.String())
-		w.WriteHeader(http.StatusSeeOther)
+		IdPState:     session.IdPState,
 	}
+	if err := h.stateStore.persist(session.Token, reqState); err != nil {
+		h.errorResponse(w, redirectURI, "server_error", "internal server error")
+		return
+	}
+
+	w.Header().Set("Location", session.Redir)
+	w.WriteHeader(http.StatusSeeOther)
 }

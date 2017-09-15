@@ -37,7 +37,7 @@ roles-url = "https://acc.api.data.amsterdam.nl/authz_admin/accounts/"
 redirects = ["http://localhost:8080/"]
 granttype = "token"  # "code" | "token" | "client_credentials"
 
-# [authorization]
+[authorization]
 # Authorization configuration.
-# base-url = "https://acc.api.data.amsterdam.nl/authz_admin/"
+base-url = "https://acc.api.data.amsterdam.nl/authz_admin/"
 

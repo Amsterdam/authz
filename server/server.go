@@ -132,6 +132,9 @@ func (s *Server) Close() error {
 func (s *Server) oauth20handler() (http.Handler, error) {
 	mux := http.NewServeMux()
 	idps := make(map[string]*idpHandler)
+	baseHandler := &oauth20Handler{
+		s.clientMap, s.authz, s.stateStore,
+	}
 	pathTempl := "authorize/%s"
 	for idpId, authn := range s.authn {
 		relPath := fmt.Sprintf(pathTempl, idpId)
@@ -139,13 +142,13 @@ func (s *Server) oauth20handler() (http.Handler, error) {
 		if u, err := s.baseURL.Parse(relPath); err != nil {
 			return nil, err
 		} else {
-			handler := &idpHandler{authn, s.stateStore, u, s.authz, s.accessTokenEnc}
+			handler := &idpHandler{baseHandler, authn, u, s.accessTokenEnc}
 			mux.Handle(absPath, handler)
 			idps[idpId] = handler
 		}
 	}
 	// Create authorization handler
-	authzHandler := &authorizationHandler{s.clientMap, s.authz, idps}
+	authzHandler := &authorizationHandler{baseHandler, idps}
 	mux.Handle("/authorize", authzHandler)
 	return mux, nil
 }
