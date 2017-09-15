@@ -43,7 +43,7 @@ func (i *idpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var state authorizationState
-	if err := i.stateStore.restore(token[0], state); err != nil {
+	if err := i.stateStore.restore(token[0], &state); err != nil {
 		log.Printf("Error restoring state token: %s\n", err)
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("invalid state token."))
