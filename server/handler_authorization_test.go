@@ -1,23 +1,27 @@
 package server
 
 import (
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/DatapuntAmsterdam/goauth2/server/servertest"
 )
 
 var handler *authorizationHandler
 
 func init() {
-	clients := servertest.ClientMap{
-		*Client{
-			Id:        "testclient",
+	clients := testClientMap{
+		&Client{
+			Id:        "testclient1",
 			Redirects: []string{"http://testclient/"},
+			GrantType: "token",
+		},
+		&Client{
+			Id:        "testclient2",
+			Redirects: []string{"http://testclient2/a", "http://testclient2/b"},
 			GrantType: "token",
 		},
 	}
@@ -30,19 +34,19 @@ func init() {
 		role:5   x       x
 		role:6     x   x
 	*/
-	authz := servertest.Authz{
-		"scope:1": []Role{Role("role:1"), Role("role:4")},
-		"scope:2": []Role{Role("role:1"), Role("role:5")},
-		"scope:3": []Role{Role("role:2"), Role("role:6")},
-		"scope:4": []Role{Role("role:2")},
-		"scope:5": []Role{Role("role:3"), Role("role:6")},
-		"scope:6": []Role{Role("role:3"), Role("role:5")},
-		"scope:7": []Role{Role("role:4")},
+	authz := testAuthz{
+		"scope:1": []testRole{testRole("role:1"), testRole("role:4")},
+		"scope:2": []testRole{testRole("role:1"), testRole("role:5")},
+		"scope:3": []testRole{testRole("role:2"), testRole("role:6")},
+		"scope:4": []testRole{testRole("role:2")},
+		"scope:5": []testRole{testRole("role:3"), testRole("role:6")},
+		"scope:6": []testRole{testRole("role:3"), testRole("role:5")},
+		"scope:7": []testRole{testRole("role:4")},
 	}
-	stateStore := newStateStorage(newStateMap(), 1*time.Duration)
+	stateStore := newStateStorage(newStateMap(), 10*time.Second)
 	baseHandler := &oauth20Handler{clients, authz, stateStore}
 
-	authn := servertest.Authn{
+	authn := testAuthn{
 		&User{"user:1", []string{"role:1", "role:2", "role:3"}},
 		&User{"user:2", []string{"role:4", "role:5", "role:6"}},
 	}
@@ -62,9 +66,10 @@ type testAuthzRequest struct {
 	State        string
 	Scope        []string
 	IdpId        string
+	Validate     func(r *http.Response)
 }
 
-func (r *testAuthzRequest) Do() http.Response {
+func (r *testAuthzRequest) Do() {
 	req := httptest.NewRequest("GET", "http://test/", nil)
 	q := req.URL.Query()
 	if r.ClientId != "" {
@@ -88,24 +93,54 @@ func (r *testAuthzRequest) Do() http.Response {
 	req.URL.RawQuery = q.Encode()
 	w := httptest.NewRecorder()
 	handler.ServeHTTP(w, req)
-	return w.Result()
+	r.Validate(w.Result())
 }
 
 func TestAuthorizationHandler(t *testing.T) {
-	var tests = []struct {
-		params   *testAuthzRequest
-		expected func(r *http.Response)
-	}{
-		{
-			&testAuthzRequest{},
-			func(r *http.Response) {
+	var tests = []*testAuthzRequest{
+		// No input at all
+		&testAuthzRequest{
+			Validate: func(r *http.Response) {
 				if r.StatusCode != 400 {
 					t.Fatalf("Unexpected response on empty request: %s", r.Status)
+				}
+				if body, err := ioutil.ReadAll(r.Body); err != nil {
+					t.Fatal(err)
+				} else if string(body) != "missing client_id" {
+					t.Fatalf("Unexpected body: %s", body)
+				}
+			},
+		},
+		// Invalid client_id
+		&testAuthzRequest{
+			ClientId: "bad",
+			Validate: func(r *http.Response) {
+				if r.StatusCode != 400 {
+					t.Fatalf("Unexpected response on empty request: %s", r.Status)
+				}
+				if body, err := ioutil.ReadAll(r.Body); err != nil {
+					t.Fatal(err)
+				} else if string(body) != "invalid client_id" {
+					t.Fatalf("Unexpected body: %s", body)
+				}
+			},
+		},
+		// Missing redirect_uri
+		&testAuthzRequest{
+			ClientId: "testclient2",
+			Validate: func(r *http.Response) {
+				if r.StatusCode != 400 {
+					t.Fatalf("Unexpected response on empty request: %s", r.Status)
+				}
+				if body, err := ioutil.ReadAll(r.Body); err != nil {
+					t.Fatal(err)
+				} else if string(body) != "missing or invalid redirect_uri" {
+					t.Fatalf("Unexpected body: %s", body)
 				}
 			},
 		},
 	}
 	for _, t := range tests {
-		t.expected(t.params.Do)
+		t.Do()
 	}
 }

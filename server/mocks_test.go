@@ -1,19 +1,17 @@
-package servertest
+package server
 
 import (
 	"errors"
 	"net/http"
 	"net/url"
-
-	"github.com/DatapuntAmsterdam/goauth2/server"
 )
 
 // A mock authorization provider
-type Authz map[string][]Role
+type testAuthz map[string][]testRole
 
-type Role string
+type testRole string
 
-func (a Authz) ValidScope(scope ...string) bool {
+func (a testAuthz) ValidScope(scope ...string) bool {
 	for _, s := range scope {
 		if _, ok := a[s]; !ok {
 			return false
@@ -23,8 +21,8 @@ func (a Authz) ValidScope(scope ...string) bool {
 }
 
 // Create scopeset for the user's given roles
-func (a Authz) ScopeSetFor(u *server.User) server.ScopeSet {
-	s := make(Authz)
+func (a testAuthz) ScopeSetFor(u *User) ScopeSet {
+	s := make(testAuthz)
 	for _, r := range u.Roles {
 		for scope, roles := range a {
 			for _, role := range roles {
@@ -38,15 +36,15 @@ func (a Authz) ScopeSetFor(u *server.User) server.ScopeSet {
 }
 
 // A mock authentication provider
-type Authn []*server.User
+type testAuthn []*User
 
 // Authnredirect sets a User under a randomly created byte slice
-func (a Authn) AuthnRedirect(callbackURL *url.URL) (*url.URL, []byte, error) {
+func (a testAuthn) AuthnRedirect(callbackURL *url.URL) (*url.URL, []byte, error) {
 	return callbackURL, nil, nil
 }
 
 // User returns the previously set user
-func (a Authn) User(r *http.Request, state []byte) (*server.User, error) {
+func (a testAuthn) User(r *http.Request, state []byte) (*User, error) {
 	if uid, ok := r.URL.Query()["uid"]; !ok {
 		return nil, errors.New("Unknown uid")
 	} else {
@@ -60,9 +58,9 @@ func (a Authn) User(r *http.Request, state []byte) (*server.User, error) {
 }
 
 // Mock client map
-type ClientMap []*server.Client
+type testClientMap []*Client
 
-func (m ClientMap) Get(id string) (*server.Client, error) {
+func (m testClientMap) Get(id string) (*Client, error) {
 	for _, c := range m {
 		if c.Id == id {
 			return c, nil
