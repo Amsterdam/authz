@@ -67,14 +67,14 @@ func options(conf *config) []server.Option {
 			options = append(options, server.BaseURL(*u))
 		}
 	}
-	// Check authentication provider
-	if (conf.Authn != authnConfig{}) {
+	// Check IdP provider
+	if (conf.IdP != idpConfig{}) {
 		if idp, err := newDatapuntIdP(
-			conf.Authn.BaseURL, conf.Authn.AccountsURL, conf.Authn.Secret,
+			conf.IdP.BaseURL, conf.IdP.AccountsURL, conf.IdP.Secret,
 		); err != nil {
 			log.Fatal(err)
 		} else {
-			options = append(options, server.IdP("datapunt", idp))
+			options = append(options, server.IdProvider("datapunt", idp))
 		}
 	}
 	// Check authorization provider

@@ -23,7 +23,7 @@ address = ":6379"
 password = ""
 
 
-[authentication]
+[idp]
 ## IdP configuration
 base-url = "https://acc.api.data.amsterdam.nl/auth/idp/login"
 secret = "sharedsecret"

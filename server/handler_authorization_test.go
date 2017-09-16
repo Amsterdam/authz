@@ -1,67 +1,27 @@
 package server
 
 import (
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
-	"time"
 )
 
 var handler *authorizationHandler
 
 func init() {
-	clients := testClientMap{
-		&Client{
-			Id:        "testclient1",
-			Redirects: []string{"http://testclient/"},
-			GrantType: "token",
-		},
-		&Client{
-			Id:        "testclient2",
-			Redirects: []string{"http://testclient2/a", "http://testclient2/b"},
-			GrantType: "token",
-		},
-	}
-	/*
-		 scope 1 2 3 4 5 6 7
-		role:1 x x
-		role:2     x x
-		role:3         x x
-		role:4 x           x
-		role:5   x       x
-		role:6     x   x
-	*/
-	authz := testAuthz{
-		"scope:1": []testRole{testRole("role:1"), testRole("role:4")},
-		"scope:2": []testRole{testRole("role:1"), testRole("role:5")},
-		"scope:3": []testRole{testRole("role:2"), testRole("role:6")},
-		"scope:4": []testRole{testRole("role:2")},
-		"scope:5": []testRole{testRole("role:3"), testRole("role:6")},
-		"scope:6": []testRole{testRole("role:3"), testRole("role:5")},
-		"scope:7": []testRole{testRole("role:4")},
-	}
-	stateStore := newStateStorage(newStateMap(), 10*time.Second)
-	baseHandler := &oauth20Handler{clients, authz, stateStore}
-
-	authn := testAuthn{
-		&User{"user:1", []string{"role:1", "role:2", "role:3"}},
-		&User{"user:2", []string{"role:4", "role:5", "role:6"}},
-	}
 	baseURL, _ := url.Parse("http://testserver/idp")
-	atEnc := newAccessTokenEncoder([]byte("secret"), 5, "testissuer")
 
 	idps := map[string]*idpHandler{
-		"idp": &idpHandler{baseHandler, authn, baseURL, atEnc},
+		"idp": &idpHandler{baseHandler(), testIdProvider(), baseURL, accessTokenEnc()},
 	}
-	handler = &authorizationHandler{baseHandler, idps}
+	handler = &authorizationHandler{baseHandler(), idps}
 }
 
 type testAuthzRequest struct {
 	ClientId     string
-	RedirectUri  string
+	RedirectURI  string
 	ResponseType string
 	State        string
 	Scope        []string
@@ -75,8 +35,8 @@ func (r *testAuthzRequest) Do() {
 	if r.ClientId != "" {
 		q.Set("client_id", r.ClientId)
 	}
-	if r.RedirectUri != "" {
-		q.Set("redirect_uri", r.RedirectUri)
+	if r.RedirectURI != "" {
+		q.Set("redirect_uri", r.RedirectURI)
 	}
 	if r.ResponseType != "" {
 		q.Set("response_type", r.ResponseType)
@@ -101,41 +61,115 @@ func TestAuthorizationHandler(t *testing.T) {
 		// No input at all
 		&testAuthzRequest{
 			Validate: func(r *http.Response) {
-				if r.StatusCode != 400 {
-					t.Fatalf("Unexpected response on empty request: %s", r.Status)
-				}
-				if body, err := ioutil.ReadAll(r.Body); err != nil {
-					t.Fatal(err)
-				} else if string(body) != "missing client_id" {
-					t.Fatalf("Unexpected body: %s", body)
-				}
+				expectBadRequest(
+					"no parameters", t, r, "missing client_id",
+				)
 			},
 		},
 		// Invalid client_id
 		&testAuthzRequest{
 			ClientId: "bad",
 			Validate: func(r *http.Response) {
-				if r.StatusCode != 400 {
-					t.Fatalf("Unexpected response on empty request: %s", r.Status)
-				}
-				if body, err := ioutil.ReadAll(r.Body); err != nil {
-					t.Fatal(err)
-				} else if string(body) != "invalid client_id" {
-					t.Fatalf("Unexpected body: %s", body)
-				}
+				expectBadRequest(
+					"invalid redirect_uri", t, r, "invalid client_id",
+				)
 			},
 		},
 		// Missing redirect_uri
 		&testAuthzRequest{
 			ClientId: "testclient2",
 			Validate: func(r *http.Response) {
-				if r.StatusCode != 400 {
-					t.Fatalf("Unexpected response on empty request: %s", r.Status)
+				expectBadRequest(
+					"missing redirect_uri", t, r, "missing or invalid redirect_uri",
+				)
+			},
+		},
+		// Bad redirect_uri
+		&testAuthzRequest{
+			ClientId:    "testclient1",
+			RedirectURI: "http://bad/",
+			Validate: func(r *http.Response) {
+				expectBadRequest(
+					"bad redirect_uri", t, r, "missing or invalid redirect_uri",
+				)
+			},
+		},
+		// Invalid redirect_uri (should be caught at client registration as well)
+		&testAuthzRequest{
+			ClientId:    "testclient2",
+			RedirectURI: ":",
+			Validate: func(r *http.Response) {
+				if r.StatusCode != 500 {
+					t.Fatalf(
+						"invalid redirect_uri: got %s, expected 500", r.StatusCode,
+					)
 				}
-				if body, err := ioutil.ReadAll(r.Body); err != nil {
-					t.Fatal(err)
-				} else if string(body) != "missing or invalid redirect_uri" {
-					t.Fatalf("Unexpected body: %s", body)
+			},
+		},
+		// Missing response_type
+		&testAuthzRequest{
+			ClientId: "testclient1",
+			Validate: func(r *http.Response) {
+				expectErrorResponse(
+					"missing response_type", t, r, "invalid_request",
+					"response_type missing",
+				)
+			},
+		},
+		// Unspported response_type
+		&testAuthzRequest{
+			ClientId:     "testclient1",
+			ResponseType: "code",
+			Validate: func(r *http.Response) {
+				expectErrorResponse(
+					"unsupported response_type", t, r, "unsupported_response_type",
+					"response_type not supported for client",
+				)
+			},
+		},
+		// Invalid scope
+		&testAuthzRequest{
+			ClientId:     "testclient1",
+			ResponseType: "token",
+			Scope:        []string{"scope:1", "thisisnoscope"},
+			Validate: func(r *http.Response) {
+				expectErrorResponse(
+					"invalid scope", t, r, "invalid_scope", "invalid scope: thisisnoscope",
+				)
+			},
+		},
+		// Missing idp_id
+		&testAuthzRequest{
+			ClientId:     "testclient1",
+			ResponseType: "token",
+			Validate: func(r *http.Response) {
+				expectErrorResponse(
+					"missing idp_id", t, r, "invalid_request", "idp_id missing",
+				)
+			},
+		},
+		// Unknown idp_id
+		&testAuthzRequest{
+			ClientId:     "testclient1",
+			ResponseType: "token",
+			IdpId:        "invalid",
+			Validate: func(r *http.Response) {
+				expectErrorResponse(
+					"unknown idp_id", t, r, "invalid_request", "unknown idp_id",
+				)
+			},
+		},
+		// Successful request
+		&testAuthzRequest{
+			ClientId:     "testclient1",
+			ResponseType: "token",
+			IdpId:        "idp",
+			Validate: func(r *http.Response) {
+				if r.StatusCode != 303 {
+					t.Fatalf(
+						"valid request: Unexpected response (expected 303, got %s)",
+						r.StatusCode,
+					)
 				}
 			},
 		},

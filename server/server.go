@@ -31,7 +31,7 @@ type Server struct {
 	// Lookups / interfaces
 	stateStore *stateStorage
 	authz      Authz
-	authn      map[string]Authn
+	idps       map[string]IdP
 	clientMap  ClientMap
 
 	// Concurrency control
@@ -42,7 +42,7 @@ type Server struct {
 
 // Create a new Server.
 func New(bindHost string, bindPort int, options ...Option) (*Server, error) {
-	s := &Server{authn: make(map[string]Authn)}
+	s := &Server{idps: make(map[string]IdP)}
 	// First we set options
 	for _, option := range options {
 		if err := option(s); err != nil {
@@ -71,8 +71,8 @@ func New(bindHost string, bindPort int, options ...Option) (*Server, error) {
 		log.Println("WARN: using empty client map")
 		s.clientMap = &emptyClientMap{}
 	}
-	// Set anonymous IdP if none is set
-	if len(s.authn) == 0 {
+	// Warn if none is set
+	if len(s.idps) == 0 {
 		log.Println("WARN: no IdP registered")
 	}
 	// Options are done
@@ -136,13 +136,13 @@ func (s *Server) oauth20handler() (http.Handler, error) {
 		s.clientMap, s.authz, s.stateStore,
 	}
 	pathTempl := "authorize/%s"
-	for idpId, authn := range s.authn {
+	for idpId, idp := range s.idps {
 		relPath := fmt.Sprintf(pathTempl, idpId)
 		absPath := fmt.Sprintf("/%s", relPath)
 		if u, err := s.baseURL.Parse(relPath); err != nil {
 			return nil, err
 		} else {
-			handler := &idpHandler{baseHandler, authn, u, s.accessTokenEnc}
+			handler := &idpHandler{baseHandler, idp, u, s.accessTokenEnc}
 			mux.Handle(absPath, handler)
 			idps[idpId] = handler
 		}
@@ -169,8 +169,8 @@ type User struct {
 	Roles []string
 }
 
-// Interface Authn is implemented by identity providers.
-type Authn interface {
+// Interface IdP is implemented by identity providers.
+type IdP interface {
 	// AuthnRedirect(...) returns an authentication URL and optional serialized
 	// state.
 	AuthnRedirect(callbackURL *url.URL) (*url.URL, []byte, error)
@@ -277,14 +277,14 @@ func AccessTokenConfig(secret []byte, lifetime int64, issuer string) Option {
 	}
 }
 
-// IdP is an option that adds the given IdP to this server. If the IdP was
+// IdProvider is an option that adds the given IdP to this server. If the IdP was
 // already registered it will be silently overwritten.
-func IdP(id string, a Authn) Option {
+func IdProvider(id string, a IdP) Option {
 	return func(s *Server) error {
 		if s.initialized {
 			return errors.New("Can only call RegisterIdP as an option to New(...)")
 		}
-		s.authn[id] = a
+		s.idps[id] = a
 		return nil
 	}
 }

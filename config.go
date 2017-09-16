@@ -21,7 +21,7 @@ type config struct {
 	BindPort     int               `toml:"bind-port"`
 	BaseURL      string            `toml:"base-url"`
 	AuthnTimeout int               `toml:"authn-timeout"`
-	Authn        authnConfig       `toml:"authentication"`
+	IdP          idpConfig         `toml:"idp"`
 	Clients      clientMap         `toml:"clients"`
 	Authz        authzConfig       `toml:"authorization"`
 	Redis        redisConfig       `toml:"redis"`
@@ -47,7 +47,7 @@ type authzConfig struct {
 }
 
 // Datapunt authentication config
-type authnConfig struct {
+type idpConfig struct {
 	BaseURL     string `toml:"base-url"`
 	AccountsURL string `toml:"accounts-url"`
 	Secret      string `toml:"secret"`
