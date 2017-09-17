@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-var handler *authorizationHandler
+var testAuthzHandler *authorizationHandler
 
 func init() {
 	baseURL, _ := url.Parse("http://testserver/idp")
@@ -16,7 +16,7 @@ func init() {
 	idps := map[string]*idpHandler{
 		"idp": &idpHandler{baseHandler(), testIdProvider(), baseURL, accessTokenEnc()},
 	}
-	handler = &authorizationHandler{baseHandler(), idps}
+	testAuthzHandler = &authorizationHandler{baseHandler(), idps}
 }
 
 type testAuthzRequest struct {
@@ -52,7 +52,7 @@ func (r *testAuthzRequest) Do() {
 	}
 	req.URL.RawQuery = q.Encode()
 	w := httptest.NewRecorder()
-	handler.ServeHTTP(w, req)
+	testAuthzHandler.ServeHTTP(w, req)
 	r.Validate(w.Result())
 }
 
@@ -174,7 +174,7 @@ func TestAuthorizationHandler(t *testing.T) {
 			},
 		},
 	}
-	for _, t := range tests {
-		t.Do()
+	for _, test := range tests {
+		test.Do()
 	}
 }

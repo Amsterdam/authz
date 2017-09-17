@@ -20,7 +20,7 @@ func (h *idpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	token, ok := q["token"]
 	if !ok {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("make an authorization request first."))
+		w.Write([]byte("token parameter missing."))
 		return
 	}
 	var state authorizationState
