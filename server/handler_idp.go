@@ -55,7 +55,7 @@ func (h *idpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.errorResponse(w, redirectURI, "server_error", "internal server error")
 		return
 	}
-	h.implicitResponse(w, redirectURI, accessToken, "bearer", 3600*10, grantedScopes, state.State)
+	h.implicitResponse(w, redirectURI, accessToken, "bearer", h.tokenEncoder.Lifetime(), grantedScopes, state.State)
 }
 
 type authnSession struct {

@@ -14,7 +14,7 @@ func init() {
 	baseURL, _ := url.Parse("http://testserver/idp")
 
 	idps := map[string]*idpHandler{
-		"idp": &idpHandler{baseHandler(), testIdProvider(), baseURL, accessTokenEnc()},
+		"idp": &idpHandler{baseHandler(), testIdProvider(), baseURL, accessTokenEnc().accessTokenEncoder},
 	}
 	testAuthzHandler = &authorizationHandler{baseHandler(), idps}
 }

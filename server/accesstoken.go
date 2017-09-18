@@ -38,6 +38,10 @@ func newAccessTokenEncoder(secret []byte, lifetime int64, issuer string) *access
 	return &accessTokenEncoder{secret, lifetime, issuer}
 }
 
+func (enc *accessTokenEncoder) Lifetime() int64 {
+	return enc.lifetime
+}
+
 func (enc *accessTokenEncoder) Encode(subject string, scopes []string) (string, error) {
 	jti, err := uuid.NewRandom()
 	if err != nil {

@@ -28,7 +28,7 @@ func (h *oauth20Handler) errorResponse(
 
 func (h *oauth20Handler) implicitResponse(
 	w http.ResponseWriter, redirectURI *url.URL, accessToken string,
-	tokenType string, lifetime int, scope []string, state string) {
+	tokenType string, lifetime int64, scope []string, state string) {
 	v := url.Values{}
 	v.Set("access_token", accessToken)
 	v.Set("token_type", tokenType)
