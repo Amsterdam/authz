@@ -26,8 +26,9 @@ password = ""
 [idp]
 ## IdP configuration
 base-url = "https://acc.api.data.amsterdam.nl/auth/idp/login"
+api-key = "key"
 secret = "sharedsecret"
-roles-url = "https://acc.api.data.amsterdam.nl/authz_admin/accounts/"
+accounts-url = "https://acc.api.data.amsterdam.nl/authz_admin/accounts/"
 
 
 [clients]

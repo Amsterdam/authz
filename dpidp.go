@@ -47,16 +47,19 @@ type datapuntIdP struct {
 	baseURL     string
 	accountsURL *url.URL
 	secret      []byte
+	apiKey      string
 	client      *http.Client
 }
 
 // Constructor. Validating its config and creates the instance.
-func newDatapuntIdP(baseURL string, accountsURL string, secret string) (*datapuntIdP, error) {
+func newDatapuntIdP(
+	baseURL string, accountsURL string, secret []byte,
+	apiKey string) (*datapuntIdP, error) {
 	if accURL, err := url.Parse(accountsURL); err != nil {
 		return nil, errors.New("Invalid accounts URL for Datapunt IdP")
 	} else {
 		return &datapuntIdP{
-			baseURL, accURL, []byte(secret), &http.Client{Timeout: 1 * time.Second},
+			baseURL, accURL, secret, apiKey, &http.Client{Timeout: 1 * time.Second},
 		}, nil
 	}
 }
@@ -146,7 +149,12 @@ func (d *datapuntIdP) user(uid string) (*server.User, error) {
 	if err != nil {
 		return nil, err
 	}
-	resp, err := d.client.Get(accountURL.String())
+	request, err := http.NewRequest("GET", accountURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+	request.Header.Set("Authorization", fmt.Sprintf("apikey %s", d.apiKey))
+	resp, err := d.client.Do(request)
 	if err != nil {
 		return nil, err
 	}

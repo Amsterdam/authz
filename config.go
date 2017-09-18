@@ -50,6 +50,7 @@ type authzConfig struct {
 type idpConfig struct {
 	BaseURL     string `toml:"base-url"`
 	AccountsURL string `toml:"accounts-url"`
+	APIKey      string `toml:"api-key"`
 	Secret      string `toml:"secret"`
 }
 

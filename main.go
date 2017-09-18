@@ -70,7 +70,7 @@ func options(conf *config) []server.Option {
 	// Check IdP provider
 	if (conf.IdP != idpConfig{}) {
 		if idp, err := newDatapuntIdP(
-			conf.IdP.BaseURL, conf.IdP.AccountsURL, conf.IdP.Secret,
+			conf.IdP.BaseURL, conf.IdP.AccountsURL, []byte(conf.IdP.Secret), conf.IdP.APIKey,
 		); err != nil {
 			log.Fatal(err)
 		} else {
