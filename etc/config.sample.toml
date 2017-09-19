@@ -10,7 +10,7 @@
 
 [accesstoken]
 secret = "makemehardtoguess"
-# Secret used to sign (HMAC-SHA256) access and refresh tokens.
+# Secret used to sign (HMAC-SHA256) access and refresh tokens. secret is accesstoken_key_(acc|prod) in ansible-vault
 lifetime = 36000
 # Lifetime of access tokens
 issuer = "http://localhost:8080/authorize"
@@ -26,7 +26,9 @@ password = ""
 [idp]
 ## IdP configuration
 base-url = "https://acc.api.data.amsterdam.nl/auth/idp/login"
+# api-key is authz_admin_api_key_(acc|prod) in ansible-vault
 api-key = "key"
+# secret is refreshtoken_key_(acc|prod) in ansible-vault
 secret = "sharedsecret"
 accounts-url = "https://acc.api.data.amsterdam.nl/authz_admin/accounts/"
 
