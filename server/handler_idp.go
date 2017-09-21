@@ -42,11 +42,13 @@ func (h *idpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.errorResponse(w, redirectURI, "access_denied", "couldn't authenticate user")
 		return
 	}
-	userScopes := h.authz.ScopeSetFor(user)
-	var grantedScopes []string
-	for _, scope := range state.Scope {
-		if userScopes.ValidScope(scope) {
-			grantedScopes = append(grantedScopes, scope)
+	grantedScopes := []string{}
+	if len(state.Scope) > 0 {
+		userScopes := h.authz.ScopeSetFor(user)
+		for _, scope := range state.Scope {
+			if userScopes.ValidScope(scope) {
+				grantedScopes = append(grantedScopes, scope)
+			}
 		}
 	}
 	accessToken, err := h.tokenEncoder.Encode(user.UID, grantedScopes)

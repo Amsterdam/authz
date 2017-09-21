@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -49,9 +50,10 @@ func (enc *accessTokenEncoder) Encode(subject string, scopes []string) (string, 
 	}
 	// Temporary for backwards compatibility
 	level := 1
-	if subject != "Medewerker" {
+	if strings.HasSuffix(subject, "@amsterdam.nl") {
 		level = 3
 	}
+	// End compat
 	now := time.Now().Unix()
 	header := &accessTokenJWTHeader{
 		Type:      "JWT",
