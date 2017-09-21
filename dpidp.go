@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DatapuntAmsterdam/goauth2/server"
+	"github.com/amsterdam/goauth2/server"
 )
 
 type jwtHeader struct {
