@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	defaultBindHost     = "0.0.0.0"
+	defaultBindHost     = ""
 	defaultBindPort     = 8080
 	defaultAuthnTimeout = 600
 )
