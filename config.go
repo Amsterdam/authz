@@ -64,10 +64,10 @@ type clientConfig struct {
 // Client lookup
 type clientMap map[string]clientConfig
 
-// Implements server.ClientMap
-func (m clientMap) Get(id string) (*server.Client, error) {
+// Implements oauth20.ClientMap
+func (m clientMap) Get(id string) (*oauth20.Client, error) {
 	if c, ok := m[id]; ok {
-		return &server.Client{
+		return &oauth20.Client{
 			Id: id, Redirects: c.Redirects, Secret: c.Secret, GrantType: c.GrantType,
 		}, nil
 	}

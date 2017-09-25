@@ -89,7 +89,7 @@ func (s *datapuntAuthz) ValidScope(scope ...string) bool {
 	return s.allScopes.ValidScope(scope...)
 }
 
-func (s *datapuntAuthz) ScopeSetFor(u *server.User) server.ScopeSet {
+func (s *datapuntAuthz) ScopeSetFor(u *oauth20.User) oauth20.ScopeSet {
 	scopeSet := make(datapuntScopeSet)
 	s.roleLock.RLock()
 	defer s.roleLock.RUnlock()

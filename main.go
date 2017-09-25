@@ -93,8 +93,8 @@ func conf() *config {
 	return conf
 }
 
-func options(conf *config) []server.Option {
-	var options []server.Option
+func options(conf *config) []oauth20.Option {
+	var options []oauth20.Option
 
 	// Check IdP provider
 	if (conf.IdP != idpConfig{}) {
@@ -103,7 +103,7 @@ func options(conf *config) []server.Option {
 		); err != nil {
 			log.Fatal(err)
 		} else {
-			options = append(options, server.IdProvider("datapunt", idp))
+			options = append(options, oauth20.IdProvider("datapunt", idp))
 		}
 	}
 	// Check authorization provider
@@ -111,20 +111,20 @@ func options(conf *config) []server.Option {
 		if authz, err := newDatapuntAuthz(conf.Authz.BaseURL); err != nil {
 			log.Fatal(err)
 		} else {
-			options = append(options, server.AuthzProvider(authz))
+			options = append(options, oauth20.AuthzProvider(authz))
 		}
 	}
 	// Check storage provider
 	if (conf.Redis != redisConfig{}) {
 		engine := newRedisStorage(conf.Redis.Address, conf.Redis.Password)
 		timeout := time.Duration(conf.AuthnTimeout) * time.Second
-		options = append(options, server.StateStorage(engine, timeout))
+		options = append(options, oauth20.StateStorage(engine, timeout))
 	}
 	// Add all configured clients
-	options = append(options, server.Clients(conf.Clients))
+	options = append(options, oauth20.Clients(conf.Clients))
 	// Add access token config
 	if (conf.Accesstoken != accessTokenConfig{}) {
-		a := server.AccessTokenConfig(
+		a := oauth20.AccessTokenConfig(
 			[]byte(conf.Accesstoken.Secret),
 			conf.Accesstoken.Lifetime,
 			conf.Accesstoken.Issuer,
