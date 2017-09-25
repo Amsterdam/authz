@@ -14,7 +14,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/amsterdam/goauth2/server"
+	"github.com/amsterdam/goauth2/oauth20"
 )
 
 func main() {

@@ -6,7 +6,7 @@ import (
 	"log"
 
 	"github.com/BurntSushi/toml"
-	"github.com/amsterdam/goauth2/server"
+	"github.com/amsterdam/goauth2/oauth20"
 )
 
 const (
