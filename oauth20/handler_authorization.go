@@ -14,7 +14,7 @@ var grants = map[string]struct{}{
 }
 
 type authorizationHandler struct {
-	*oauth20Handler
+	*baseHandler
 	idps map[string]*idpHandler
 }
 

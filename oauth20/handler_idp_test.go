@@ -11,7 +11,7 @@ import (
 
 func testIdPHandler() *idpHandler {
 	baseURL, _ := url.Parse("http://testserver/idp")
-	return &idpHandler{baseHandler(), testIdProvider(), baseURL, accessTokenEnc().accessTokenEncoder}
+	return &idpHandler{newBaseHandler(), testIdProvider(), baseURL, accessTokenEnc().accessTokenEncoder}
 }
 
 func TestEmptyRequest(t *testing.T) {

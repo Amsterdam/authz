@@ -75,7 +75,7 @@ func Handler(baseURL *url.URL, options ...Option) (http.Handler, error) {
 func (s *oauth20Handler) handler() (http.Handler, error) {
 	mux := http.NewServeMux()
 	idps := make(map[string]*idpHandler)
-	baseHandler := &oauth20Handler{
+	baseHandler := &baseHandler{
 		s.clientMap, s.authz, s.stateStore,
 	}
 	pathTempl := "authorize/%s"

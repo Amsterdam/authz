@@ -18,7 +18,7 @@ import (
 ///////////////////////
 // Mock objects
 ///////////////////////
-func baseHandler() *oauth20Handler {
+func newBaseHandler() *baseHandler {
 	clients := testClientMap{
 		&Client{
 			Id:        "testclient1",
@@ -51,7 +51,7 @@ func baseHandler() *oauth20Handler {
 	}
 	stateStore := newStateStorage(newStateMap(), 10*time.Second)
 
-	return &oauth20Handler{clients, authz, stateStore}
+	return &baseHandler{clients, authz, stateStore}
 }
 
 func testIdProvider() IdP {

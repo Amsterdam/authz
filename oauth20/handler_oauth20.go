@@ -7,15 +7,15 @@ import (
 	"strings"
 )
 
-// oauth20Handler is the base handler for all OAuth 2.0 request handlers
-type oauth20Handler struct {
+// baseHandler is the base handler for all OAuth 2.0 request handlers
+type baseHandler struct {
 	clients    ClientMap
 	authz      Authz
 	stateStore *stateStorage
 }
 
 // oauth20Error
-func (h *oauth20Handler) errorResponse(
+func (h *baseHandler) errorResponse(
 	w http.ResponseWriter, r *url.URL, code string, desc string) {
 	query := r.Query()
 	query.Set("error", code)
@@ -26,7 +26,7 @@ func (h *oauth20Handler) errorResponse(
 	w.WriteHeader(http.StatusSeeOther)
 }
 
-func (h *oauth20Handler) implicitResponse(
+func (h *baseHandler) implicitResponse(
 	w http.ResponseWriter, redirectURI *url.URL, accessToken string,
 	tokenType string, lifetime int64, scope []string, state string) {
 	v := url.Values{}

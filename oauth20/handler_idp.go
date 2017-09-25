@@ -9,7 +9,7 @@ import (
 )
 
 type idpHandler struct {
-	*oauth20Handler
+	*baseHandler
 	IdP
 	baseURL      *url.URL
 	tokenEncoder *accessTokenEncoder

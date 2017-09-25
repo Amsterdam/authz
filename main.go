@@ -23,7 +23,7 @@ func main() {
 	// Get options
 	opts := options(conf)
 	// Create handler
-	handler, err := oauth20.Handler(baseURL(), opts...)
+	handler, err := oauth20.Handler(baseURL(conf), opts...)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -41,7 +41,6 @@ func main() {
 	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
 	// Start the OAuth 2.0 server
 	go start(errorChan, listener, handler)
-	defer srvr.Close()
 	// Block until one of the signals above is received
 	log.Printf("INFO: Service started on %s.\n", bindAddr)
 	for {
@@ -75,11 +74,11 @@ func baseURL(conf *config) *url.URL {
 	} else {
 		bu = fmt.Sprintf("%s:%d", conf.BindHost, conf.BindPort)
 	}
-	if u, err := url.Parse(bu); err != nil {
+	u, err := url.Parse(bu)
+	if err != nil {
 		log.Fatal(err)
-	} else {
-		return u
 	}
+	return u
 }
 
 // configuration returns the service configuration

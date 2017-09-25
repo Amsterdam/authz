@@ -14,9 +14,9 @@ func init() {
 	baseURL, _ := url.Parse("http://testserver/idp")
 
 	idps := map[string]*idpHandler{
-		"idp": &idpHandler{baseHandler(), testIdProvider(), baseURL, accessTokenEnc().accessTokenEncoder},
+		"idp": &idpHandler{newBaseHandler(), testIdProvider(), baseURL, accessTokenEnc().accessTokenEncoder},
 	}
-	testAuthzHandler = &authorizationHandler{baseHandler(), idps}
+	testAuthzHandler = &authorizationHandler{newBaseHandler(), idps}
 }
 
 type testAuthzRequest struct {
