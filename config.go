@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	defaultBindHost     = ""
+	defaultBindHost     = "0.0.0.0"
 	defaultBindPort     = 8080
 	defaultAuthnTimeout = 600
 )
@@ -20,6 +20,7 @@ type config struct {
 	BindHost     string            `toml:"bind-host"`
 	BindPort     int               `toml:"bind-port"`
 	BaseURL      string            `toml:"base-url"`
+	PprofEnabled bool              `toml:"pprof-enabled"`
 	AuthnTimeout int               `toml:"authn-timeout"`
 	IdP          idpConfig         `toml:"idp"`
 	Clients      clientMap         `toml:"clients"`

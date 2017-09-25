@@ -5,7 +5,6 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
-	"net/http/pprof"
 	"net/url"
 	"sync"
 	"time"
@@ -93,11 +92,6 @@ func (s *oauth20Handler) handler() (http.Handler, error) {
 	// Create authorization handler
 	authzHandler := &authorizationHandler{baseHandler, idps}
 	mux.Handle("/authorize", authzHandler)
-	// Register profile paths
-	mux.Handle("/debug/pprof/", http.HandlerFunc(pprof.Index))
-	mux.Handle("/debug/pprof/cmdline", http.HandlerFunc(pprof.Cmdline))
-	mux.Handle("/debug/pprof/profile", http.HandlerFunc(pprof.Profile))
-	mux.Handle("/debug/pprof/symbol", http.HandlerFunc(pprof.Symbol))
 	return mux, nil
 }
 

@@ -6,7 +6,10 @@
 ## Bind to this port (default 8080)
 
 # base-url = 
-# Base URL of the service. Defaults to http://[bind-address]/.
+## Base URL of the service. Defaults to http://[bind-address]/.
+
+# pprof-enabled = true
+## Enable profiler
 
 [accesstoken]
 secret = "makemehardtoguess"

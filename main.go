@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/http/pprof"
 	"net/url"
 	"os"
 	"os/signal"
@@ -23,15 +24,20 @@ func main() {
 	// Get options
 	opts := options(conf)
 	// Create handler
-	handler, err := oauth20.Handler(baseURL(conf), opts...)
+	oauthHandler, err := oauth20.Handler(baseURL(conf), opts...)
 	if err != nil {
 		log.Fatal(err)
+	}
+	handler := &Handler{oauthHandler, conf}
+	// Warn if profiler is enabled
+	if conf.PprofEnabled {
+		log.Println("WARN: Profiling should not be enbaled in production!")
 	}
 	// Create listener
 	bindAddr := fmt.Sprintf("%s:%d", conf.BindHost, conf.BindPort)
 	listener, err := net.Listen("tcp", bindAddr)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Couldn't bind listener: %s", err)
 	}
 	defer listener.Close()
 	// Create error and signal channels
@@ -72,7 +78,7 @@ func baseURL(conf *config) *url.URL {
 	if conf.BaseURL != "" {
 		bu = conf.BaseURL
 	} else {
-		bu = fmt.Sprintf("%s:%d", conf.BindHost, conf.BindPort)
+		bu = fmt.Sprintf("http://%s:%d/", conf.BindHost, conf.BindPort)
 	}
 	u, err := url.Parse(bu)
 	if err != nil {
@@ -131,4 +137,38 @@ func options(conf *config) []oauth20.Option {
 		options = append(options, a)
 	}
 	return options
+}
+
+type Handler struct {
+	http.Handler
+	Config *config
+}
+
+func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if strings.HasPrefix(r.URL.Path, "/debug/pprof") && h.Config.PprofEnabled {
+		h.handleProfiles(w, r)
+	} else if r.URL.Path == "/ping" {
+		h.servePing(w, r)
+	} else {
+		h.Handler.ServeHTTP(w, r)
+	}
+}
+
+// handleProfiles determines which profile to return to the requester.
+func (h *Handler) handleProfiles(w http.ResponseWriter, r *http.Request) {
+	switch r.URL.Path {
+	case "/debug/pprof/cmdline":
+		pprof.Cmdline(w, r)
+	case "/debug/pprof/profile":
+		pprof.Profile(w, r)
+	case "/debug/pprof/symbol":
+		pprof.Symbol(w, r)
+	default:
+		pprof.Index(w, r)
+	}
+}
+
+// servePing returns a simple response to let the client know the server is running.
+func (h *Handler) servePing(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNoContent)
 }
