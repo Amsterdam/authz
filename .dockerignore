@@ -3,5 +3,5 @@
 
 # except a few
 !*.go
-!server
+!oauth20
 !Godeps
