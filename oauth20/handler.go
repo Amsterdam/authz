@@ -1,7 +1,6 @@
-package server
+package oauth20
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"math/rand"
@@ -28,7 +27,6 @@ type oauth20Handler struct {
 
 	// Concurrency control
 	clientMutex sync.RWMutex
-	initialized bool
 }
 
 // Handler() returns an http.Handler that handles OAuth 2.0 requests.
@@ -69,13 +67,11 @@ func Handler(baseURL *url.URL, options ...Option) (http.Handler, error) {
 	if len(s.idps) == 0 {
 		log.Println("WARN: no IdP registered")
 	}
-	// Options are done
-	s.initialized = true
 
 	return s.handler()
 }
 
-// oauth20handler() creates the request handler for the server.
+// oauth20handler() creates the request handler for the handler.
 func (s *oauth20Handler) handler() (http.Handler, error) {
 	mux := http.NewServeMux()
 	idps := make(map[string]*idpHandler)
@@ -106,7 +102,7 @@ func (s *oauth20Handler) handler() (http.Handler, error) {
 }
 
 // Interface StateKeeper is implemented by storage engines and used to
-// store transient state data throughout the server.
+// store transient state data throughout the handler.
 type StateKeeper interface {
 	Persist(key string, data string, lifetime time.Duration) error
 	Restore(key string) (string, error)
@@ -165,40 +161,31 @@ type ClientMap interface {
 	Get(id string) (*Client, error)
 }
 
-// An option is a server option that can be passed to New().
+// An option is a handler option that can be passed to New().
 type Option func(*oauth20Handler) error
 
-// StateStorage() is an option that sets the transient storage for the server
+// StateStorage() is an option that sets the transient storage for the handler
 // instance.
 func StateStorage(engine StateKeeper, lifetime time.Duration) Option {
 	return func(s *oauth20Handler) error {
-		if s.initialized {
-			return errors.New("Given server already initialized")
-		}
 		s.stateStore = newStateStorage(engine, lifetime)
 		return nil
 	}
 }
 
-// Clients() is an option that sets the given client mapping for the server
+// Clients() is an option that sets the given client mapping for the handler
 // instance.
 func Clients(m ClientMap) Option {
 	return func(s *oauth20Handler) error {
-		if s.initialized {
-			return errors.New("Given server already initialized")
-		}
 		s.clientMap = m
 		return nil
 	}
 }
 
 // AuthzProvider() is an option that sets the given authorization provider for
-// the server instance.
+// the handler instance.
 func AuthzProvider(p Authz) Option {
 	return func(s *oauth20Handler) error {
-		if s.initialized {
-			return errors.New("Given server already initialized")
-		}
 		s.authz = p
 		return nil
 	}
@@ -207,21 +194,15 @@ func AuthzProvider(p Authz) Option {
 // AccessTokenConfig() is an option that configures access token JWTs.
 func AccessTokenConfig(secret []byte, lifetime int64, issuer string) Option {
 	return func(s *oauth20Handler) error {
-		if s.initialized {
-			return errors.New("Can only call SetAccessTokenConfig as an option to New(...)")
-		}
 		s.accessTokenEnc = newAccessTokenEncoder(secret, lifetime, issuer)
 		return nil
 	}
 }
 
-// IdProvider is an option that adds the given IdP to this server. If the IdP was
+// IdProvider is an option that adds the given IdP to this handler. If the IdP was
 // already registered it will be silently overwritten.
 func IdProvider(id string, a IdP) Option {
 	return func(s *oauth20Handler) error {
-		if s.initialized {
-			return errors.New("Can only call RegisterIdP as an option to New(...)")
-		}
 		s.idps[id] = a
 		return nil
 	}

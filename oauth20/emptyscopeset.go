@@ -1,4 +1,4 @@
-package server
+package oauth20
 
 // emptyScopeSet contains no scopes.
 type emptyScopeSet struct{}

@@ -1,4 +1,4 @@
-package server
+package oauth20
 
 import (
 	"reflect"
