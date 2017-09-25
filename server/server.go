@@ -5,10 +5,9 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
-	"net"
 	"net/http"
+	"net/http/pprof"
 	"net/url"
-	"strings"
 	"sync"
 	"time"
 )
@@ -17,32 +16,27 @@ func init() {
 	rand.Seed(time.Now().UTC().UnixNano())
 }
 
-type Server struct {
-	baseURL  url.URL
-	listener net.Listener
-	bindAddr string
-
-	// handler is saved so it can be inspected
-	handler http.Handler
+type oauth20Handler struct {
+	baseURL url.URL
 
 	// Components / interfaces
 	accessTokenEnc *accessTokenEncoder
-
-	// Lookups / interfaces
-	stateStore *stateStorage
-	authz      Authz
-	idps       map[string]IdP
-	clientMap  ClientMap
+	stateStore     *stateStorage
+	authz          Authz
+	idps           map[string]IdP
+	clientMap      ClientMap
 
 	// Concurrency control
 	clientMutex sync.RWMutex
-	once        sync.Once
 	initialized bool
 }
 
-// Create a new Server.
-func New(bindHost string, bindPort int, options ...Option) (*Server, error) {
-	s := &Server{idps: make(map[string]IdP)}
+// Handler() returns an http.Handler that handles OAuth 2.0 requests.
+func Handler(baseURL *url.URL, options ...Option) (http.Handler, error) {
+	s := &oauth20Handler{
+		baseURL: *baseURL,
+		idps:    make(map[string]IdP),
+	}
 	// First we set options
 	for _, option := range options {
 		if err := option(s); err != nil {
@@ -78,58 +72,11 @@ func New(bindHost string, bindPort int, options ...Option) (*Server, error) {
 	// Options are done
 	s.initialized = true
 
-	// Save bindaddr
-	s.bindAddr = fmt.Sprintf("%s:%d", bindHost, bindPort)
-
-	// Set baseURL to http://localhost:[bindPort]/ if it isn't set
-	if (s.baseURL == url.URL{}) {
-		addr := fmt.Sprintf("http://localhost:%d/", bindPort)
-		if u, err := url.Parse(addr); err != nil {
-			log.Fatal(err)
-		} else {
-			s.baseURL = *u
-		}
-	}
-	// Create handler
-	if handler, err := s.oauth20handler(); err != nil {
-		log.Fatal(err)
-	} else {
-		s.handler = handler
-	}
-	return s, nil
-}
-
-// Start() runs the server and reports errors. Ignores subsequent calls after
-// the first.
-func (s *Server) Start(errChan chan error) {
-	s.once.Do(func() {
-		// Create listener
-		if listener, err := net.Listen("tcp", s.bindAddr); err != nil {
-			errChan <- err
-			return
-		} else {
-			s.listener = listener
-		}
-		// Start server
-		err := http.Serve(s.listener, s.handler)
-		if err != nil && !strings.Contains(err.Error(), "closed") {
-			errChan <- err
-		}
-	})
-}
-
-// Handler() returns the server's handler
-func (s *Server) Handler() http.Handler {
-	return s.handler
-}
-
-// Close() closes the listener.
-func (s *Server) Close() error {
-	return s.listener.Close()
+	return s.handler()
 }
 
 // oauth20handler() creates the request handler for the server.
-func (s *Server) oauth20handler() (http.Handler, error) {
+func (s *oauth20Handler) handler() (http.Handler, error) {
 	mux := http.NewServeMux()
 	idps := make(map[string]*idpHandler)
 	baseHandler := &oauth20Handler{
@@ -150,6 +97,11 @@ func (s *Server) oauth20handler() (http.Handler, error) {
 	// Create authorization handler
 	authzHandler := &authorizationHandler{baseHandler, idps}
 	mux.Handle("/authorize", authzHandler)
+	// Register profile paths
+	mux.Handle("/debug/pprof/", http.HandlerFunc(pprof.Index))
+	mux.Handle("/debug/pprof/cmdline", http.HandlerFunc(pprof.Cmdline))
+	mux.Handle("/debug/pprof/profile", http.HandlerFunc(pprof.Profile))
+	mux.Handle("/debug/pprof/symbol", http.HandlerFunc(pprof.Symbol))
 	return mux, nil
 }
 
@@ -214,26 +166,12 @@ type ClientMap interface {
 }
 
 // An option is a server option that can be passed to New().
-type Option func(*Server) error
-
-// BaseURL() is an option that sets the given URL as the base URL of the
-// service. This is useful if the external address of the service is different
-// from its bind address (so basically in any environment apart from in
-// development).
-func BaseURL(u url.URL) Option {
-	return func(s *Server) error {
-		if s.initialized {
-			return errors.New("Given server already initialized")
-		}
-		s.baseURL = u
-		return nil
-	}
-}
+type Option func(*oauth20Handler) error
 
 // StateStorage() is an option that sets the transient storage for the server
 // instance.
 func StateStorage(engine StateKeeper, lifetime time.Duration) Option {
-	return func(s *Server) error {
+	return func(s *oauth20Handler) error {
 		if s.initialized {
 			return errors.New("Given server already initialized")
 		}
@@ -245,7 +183,7 @@ func StateStorage(engine StateKeeper, lifetime time.Duration) Option {
 // Clients() is an option that sets the given client mapping for the server
 // instance.
 func Clients(m ClientMap) Option {
-	return func(s *Server) error {
+	return func(s *oauth20Handler) error {
 		if s.initialized {
 			return errors.New("Given server already initialized")
 		}
@@ -257,7 +195,7 @@ func Clients(m ClientMap) Option {
 // AuthzProvider() is an option that sets the given authorization provider for
 // the server instance.
 func AuthzProvider(p Authz) Option {
-	return func(s *Server) error {
+	return func(s *oauth20Handler) error {
 		if s.initialized {
 			return errors.New("Given server already initialized")
 		}
@@ -268,7 +206,7 @@ func AuthzProvider(p Authz) Option {
 
 // AccessTokenConfig() is an option that configures access token JWTs.
 func AccessTokenConfig(secret []byte, lifetime int64, issuer string) Option {
-	return func(s *Server) error {
+	return func(s *oauth20Handler) error {
 		if s.initialized {
 			return errors.New("Can only call SetAccessTokenConfig as an option to New(...)")
 		}
@@ -280,7 +218,7 @@ func AccessTokenConfig(secret []byte, lifetime int64, issuer string) Option {
 // IdProvider is an option that adds the given IdP to this server. If the IdP was
 // already registered it will be silently overwritten.
 func IdProvider(id string, a IdP) Option {
-	return func(s *Server) error {
+	return func(s *oauth20Handler) error {
 		if s.initialized {
 			return errors.New("Can only call RegisterIdP as an option to New(...)")
 		}

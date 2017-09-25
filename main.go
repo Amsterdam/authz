@@ -3,10 +3,14 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
+	"net"
+	"net/http"
 	"net/url"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -16,23 +20,30 @@ import (
 func main() {
 	// Load configuration
 	conf := conf()
-	// Create server options
-	options := options(conf)
-	// Create server
-	srvr, err := server.New(conf.BindHost, conf.BindPort, options...)
+	// Get options
+	opts := options(conf)
+	// Create handler
+	handler, err := oauth20.Handler(baseURL(), opts...)
 	if err != nil {
 		log.Fatal(err)
 	}
+	// Create listener
+	bindAddr := fmt.Sprintf("%s:%d", conf.BindHost, conf.BindPort)
+	listener, err := net.Listen("tcp", bindAddr)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer listener.Close()
 	// Create error and signal channels
 	errorChan := make(chan error)
 	signalChan := make(chan os.Signal, 1)
 	// Register signals
 	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
 	// Start the OAuth 2.0 server
-	go srvr.Start(errorChan)
+	go start(errorChan, listener, handler)
 	defer srvr.Close()
 	// Block until one of the signals above is received
-	log.Printf("INFO: Service started on %s:%d.\n", conf.BindHost, conf.BindPort)
+	log.Printf("INFO: Service started on %s.\n", bindAddr)
 	for {
 		select {
 		case err := <-errorChan:
@@ -44,6 +55,31 @@ func main() {
 	}
 	// Done. Stopping.
 	log.Print("INFO: Service stopped")
+}
+
+// Start() runs the server and reports errors. Ignores subsequent calls after
+// the first.
+func start(errChan chan error, listener net.Listener, handler http.Handler) {
+	// Start server
+	err := http.Serve(listener, handler)
+	if err != nil && !strings.Contains(err.Error(), "closed") {
+		errChan <- err
+	}
+}
+
+func baseURL(conf *config) *url.URL {
+	// Check base url
+	var bu string
+	if conf.BaseURL != "" {
+		bu = conf.BaseURL
+	} else {
+		bu = fmt.Sprintf("%s:%d", conf.BindHost, conf.BindPort)
+	}
+	if u, err := url.Parse(bu); err != nil {
+		log.Fatal(err)
+	} else {
+		return u
+	}
 }
 
 // configuration returns the service configuration
@@ -59,14 +95,7 @@ func conf() *config {
 
 func options(conf *config) []server.Option {
 	var options []server.Option
-	// Check base url
-	if conf.BaseURL != "" {
-		if u, err := url.Parse(conf.BaseURL); err != nil {
-			log.Fatal(err)
-		} else {
-			options = append(options, server.BaseURL(*u))
-		}
-	}
+
 	// Check IdP provider
 	if (conf.IdP != idpConfig{}) {
 		if idp, err := newDatapuntIdP(
