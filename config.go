@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"io/ioutil"
-	"log"
 
 	"github.com/BurntSushi/toml"
 	"github.com/amsterdam/goauth2/oauth20"
@@ -82,9 +81,7 @@ func LoadConfig(configPath string) (*config, error) {
 		BindPort:     defaultBindPort,
 		AuthnTimeout: defaultAuthnTimeout,
 	}
-	if configPath == "" {
-		log.Print("No configfile path given, using defaults")
-	} else {
+	if configPath != "" {
 		if err := tomlToConfig(configPath, config); err != nil {
 			return nil, err
 		}

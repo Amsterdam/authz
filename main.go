@@ -23,8 +23,16 @@ func main() {
 	conf := conf()
 	// Get options
 	opts := options(conf)
+	// Check that base URL is set
+	if conf.BaseURL == "" {
+		log.Fatal("Must set base-url in config")
+	}
+	baseURL, err := url.Parse(conf.BaseURL)
+	if err != nil {
+		log.Fatalf("Invalid base-url: %s", err)
+	}
 	// Create handler
-	oauthHandler, err := oauth20.Handler(baseURL(conf), opts...)
+	oauthHandler, err := oauth20.Handler(baseURL, opts...)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -72,21 +80,6 @@ func start(errChan chan error, listener net.Listener, handler http.Handler) {
 	}
 }
 
-func baseURL(conf *config) *url.URL {
-	// Check base url
-	var bu string
-	if conf.BaseURL != "" {
-		bu = conf.BaseURL
-	} else {
-		bu = fmt.Sprintf("http://localhost:%d/", conf.BindPort)
-	}
-	u, err := url.Parse(bu)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return u
-}
-
 // configuration returns the service configuration
 func conf() *config {
 	var configPath = flag.String("config", "", "Path to a configuration file.")
@@ -101,7 +94,11 @@ func conf() *config {
 func options(conf *config) []oauth20.Option {
 	var options []oauth20.Option
 
-	// Check IdP provider
+	/////////////////////
+	// REQUIRED OPTIONS
+	/////////////////////
+
+	// IdP
 	if (conf.IdP != idpConfig{}) {
 		if idp, err := newDatapuntIdP(
 			conf.IdP.BaseURL, conf.IdP.AccountsURL, []byte(conf.IdP.Secret), conf.IdP.APIKey,
@@ -110,24 +107,20 @@ func options(conf *config) []oauth20.Option {
 		} else {
 			options = append(options, oauth20.IdProvider("datapunt", idp))
 		}
+	} else {
+		log.Fatal("Must configure an IdP")
 	}
-	// Check authorization provider
-	if (conf.Authz != authzConfig{}) {
-		if authz, err := newDatapuntAuthz(conf.Authz.BaseURL); err != nil {
-			log.Fatal(err)
-		} else {
-			options = append(options, oauth20.AuthzProvider(authz))
-		}
+	// Clients
+	if len(conf.Clients) == 0 {
+		log.Fatal("Must configure at least one registered client")
 	}
-	// Check storage provider
-	if (conf.Redis != redisConfig{}) {
-		engine := newRedisStorage(conf.Redis.Address, conf.Redis.Password)
-		timeout := time.Duration(conf.AuthnTimeout) * time.Second
-		options = append(options, oauth20.StateStorage(engine, timeout))
-	}
-	// Add all configured clients
 	options = append(options, oauth20.Clients(conf.Clients))
-	// Add access token config
+
+	////////////////////////
+	// OPTIONAL OPTIONS
+	////////////////////////
+
+	// Access token config
 	if (conf.Accesstoken != accessTokenConfig{}) {
 		a := oauth20.AccessTokenConfig(
 			[]byte(conf.Accesstoken.Secret),
@@ -135,6 +128,20 @@ func options(conf *config) []oauth20.Option {
 			conf.Accesstoken.Issuer,
 		)
 		options = append(options, a)
+	}
+	// Authorization provider
+	if (conf.Authz != authzConfig{}) {
+		if authz, err := newDatapuntAuthz(conf.Authz.BaseURL); err != nil {
+			log.Fatal(err)
+		} else {
+			options = append(options, oauth20.AuthzProvider(authz))
+		}
+	}
+	// Storage provider
+	if (conf.Redis != redisConfig{}) {
+		engine := newRedisStorage(conf.Redis.Address, conf.Redis.Password)
+		timeout := time.Duration(conf.AuthnTimeout) * time.Second
+		options = append(options, oauth20.StateStorage(engine, timeout))
 	}
 	return options
 }
