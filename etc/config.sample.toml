@@ -39,7 +39,7 @@ accounts-url = "https://acc.api.data.amsterdam.nl/authz_admin/accounts/"
 [clients]
 # OAuth 2.0 clients. Require client-id, granttype and redirects.
 
-[clients."citydata-data.amsterdam.nl"]
+[clients."citydata"]
 redirects = ["http://localhost:8080/"]
 granttype = "token"  # "code" | "token" | "client_credentials"
 

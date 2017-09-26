@@ -37,7 +37,8 @@ func (h *baseHandler) implicitResponse(
 	if len(state) > 0 {
 		v.Set("state", state)
 	}
-	redirectURI.Fragment = v.Encode()
-	w.Header().Add("Location", redirectURI.String())
+	fragment := v.Encode()
+	redir := fmt.Sprintf("%s#%s", redirectURI.String(), fragment)
+	w.Header().Add("Location", redir)
 	w.WriteHeader(http.StatusSeeOther)
 }
