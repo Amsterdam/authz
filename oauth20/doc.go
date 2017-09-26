@@ -42,9 +42,9 @@ be very useful:
 
 A minimally useful service provides implementations of:
 
-- oauth20.ClientMap: a registry of clients that are known by the service;
-- oauth20.IdP: an identity provider, so users can authenticate;
-- oauth20.Authz: the scopes and roles supported by the service;
+* oauth20.ClientMap: a registry of clients that are known by the service;
+* oauth20.IdP: an identity provider, so users can authenticate;
+* oauth20.Authz: the scopes and roles supported by the service;
 
 ... and configuration for the accesstokens: the shared secret, the token lifetime and the token issuer identifier.
 
