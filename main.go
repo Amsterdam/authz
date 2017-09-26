@@ -78,7 +78,7 @@ func baseURL(conf *config) *url.URL {
 	if conf.BaseURL != "" {
 		bu = conf.BaseURL
 	} else {
-		bu = fmt.Sprintf("http://%s:%d/", conf.BindHost, conf.BindPort)
+		bu = fmt.Sprintf("http://localhost:%d/", conf.BindPort)
 	}
 	u, err := url.Parse(bu)
 	if err != nil {
