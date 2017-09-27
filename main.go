@@ -2,13 +2,12 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
-	"net"
 	"net/http"
 	"net/http/pprof"
-	"net/url"
 	"os"
 	"os/signal"
 	"strings"
@@ -19,64 +18,39 @@ import (
 )
 
 func main() {
-	// Load configuration
+	// Load and check configuration
 	conf := conf()
+
 	// Get options
 	opts := options(conf)
-	// Check that base URL is set
-	if conf.BaseURL == "" {
-		log.Fatal("Must set base-url in config")
-	}
-	baseURL, err := url.Parse(conf.BaseURL)
-	if err != nil {
-		log.Fatalf("Invalid base-url: %s", err)
-	}
+
 	// Create handler
-	oauthHandler, err := oauth20.Handler(baseURL, opts...)
+	oauthHandler, err := oauth20.Handler(conf.BaseURL, opts...)
 	if err != nil {
 		log.Fatal(err)
 	}
+	// ... wrap in middleware
 	handler := &Handler{oauthHandler, conf}
-	// Warn if profiler is enabled
-	if conf.PprofEnabled {
-		log.Println("WARN: Profiling should not be enbaled in production!")
-	}
-	// Create listener
-	bindAddr := fmt.Sprintf("%s:%d", conf.BindHost, conf.BindPort)
-	listener, err := net.Listen("tcp", bindAddr)
-	if err != nil {
-		log.Fatalf("Couldn't bind listener: %s", err)
-	}
-	defer listener.Close()
-	// Create error and signal channels
-	errorChan := make(chan error)
-	signalChan := make(chan os.Signal, 1)
-	// Register signals
-	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
-	// Start the OAuth 2.0 server
-	go start(errorChan, listener, handler)
-	// Block until one of the signals above is received
-	log.Printf("INFO: Service started on %s.\n", bindAddr)
-	for {
-		select {
-		case err := <-errorChan:
-			log.Print(err)
-		case <-signalChan:
-			log.Print("INFO: Signal received, shutting down.")
-			return
-		}
-	}
-	// Done. Stopping.
-	log.Print("INFO: Service stopped")
-}
 
-// Start() runs the server and reports errors. Ignores subsequent calls after
-// the first.
-func start(errChan chan error, listener net.Listener, handler http.Handler) {
-	// Start server
-	err := http.Serve(listener, handler)
-	if err != nil && !strings.Contains(err.Error(), "closed") {
-		errChan <- err
+	// Create server
+	bindAddr := fmt.Sprintf("%s:%d", conf.BindHost, conf.BindPort)
+	server := &http.Server{Addr: bindAddr, Handler: handler}
+
+	// Shut down server if signal is received
+	go func() {
+		signalChan := make(chan os.Signal, 1)
+		signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
+		<-signalChan
+		server.Shutdown(context.Background())
+		log.Print("INFO: Signal received, stopping service.")
+	}()
+
+	// Start the OAuth 2.0 server
+	log.Printf("INFO: Starting service on %s.\n", bindAddr)
+	if err := server.ListenAndServe(); err != http.ErrServerClosed {
+		log.Printf("WARN: Error shutting down service: %v\n", err)
+	} else {
+		log.Println("INFO: Server stopped")
 	}
 }
 
@@ -87,6 +61,14 @@ func conf() *config {
 	conf, err := LoadConfig(*configPath)
 	if err != nil {
 		log.Fatal(err)
+	}
+	// Check that base URL is set
+	if conf.BaseURL == "" {
+		log.Fatal("Must set base-url in config")
+	}
+	// Warn if profiler is enabled
+	if conf.PprofEnabled {
+		log.Println("WARN: Profiling should not be enbaled in production!")
 	}
 	return conf
 }

@@ -29,9 +29,13 @@ type oauth20Handler struct {
 }
 
 // Handler() returns an http.Handler that handles OAuth 2.0 requests.
-func Handler(baseURL *url.URL, options ...Option) (http.Handler, error) {
+func Handler(baseURL string, options ...Option) (http.Handler, error) {
+	u, err := url.Parse(baseURL)
+	if err != nil {
+		return nil, err
+	}
 	s := &oauth20Handler{
-		baseURL: *baseURL,
+		baseURL: *u,
 		idps:    make(map[string]IdP),
 	}
 	// First we set options
