@@ -5,20 +5,13 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io/ioutil"
-	"net/http"
-	"net/url"
 	"strings"
-	"testing"
-	"time"
 )
 
-///////////////////////
-// Mock objects
-///////////////////////
-func newBaseHandler() *baseHandler {
+/*
+func handler() *oauth20Handler {
+
 	clients := testClientMap{
 		&Client{
 			Id:        "testclient1",
@@ -31,7 +24,7 @@ func newBaseHandler() *baseHandler {
 			GrantType: "token",
 		},
 	}
-	/*
+
 		 scope 1 2 3 4 5 6 7
 		role:1 x x
 		role:2     x x
@@ -39,7 +32,7 @@ func newBaseHandler() *baseHandler {
 		role:4 x           x
 		role:5   x       x
 		role:6     x   x
-	*/
+
 	authz := testAuthz{
 		"scope:1": []testRole{testRole("role:1"), testRole("role:4")},
 		"scope:2": []testRole{testRole("role:1"), testRole("role:5")},
@@ -51,7 +44,9 @@ func newBaseHandler() *baseHandler {
 	}
 	stateStore := newStateStorage(newStateMap(), 10*time.Second)
 
-	return &baseHandler{clients, authz, stateStore}
+	baseURL, _ := url.Parse("http://testserver/idp")
+
+	return Handler()
 }
 
 func testIdProvider() IdP {
@@ -60,7 +55,7 @@ func testIdProvider() IdP {
 		&User{"user:2", []string{"role:4", "role:5", "role:6"}},
 	}
 }
-
+*/
 func accessTokenEnc() *testAccessTokenEncoder {
 	enc := newAccessTokenEncoder([]byte("secret"), 5, "testissuer")
 	return &testAccessTokenEncoder{enc}
@@ -80,7 +75,7 @@ func (enc *testAccessTokenEncoder) decodeJWT(jwt string) (*accessTokenJWTHeader,
 	)
 	parts := strings.Split(jwt, ".")
 	if len(parts) != 3 {
-		return nil, nil, fmt.Errorf("JWT shoud have 3 parts, has %d: ", len(parts), jwt)
+		return nil, nil, fmt.Errorf("JWT shoud have 3 parts, has %d: ", len(parts))
 	}
 	b64header, b64payload, b64digest := parts[0], parts[1], parts[2]
 	mac := hmac.New(sha256.New, enc.secret)
@@ -109,6 +104,7 @@ func (enc *testAccessTokenEncoder) decodeJWT(jwt string) (*accessTokenJWTHeader,
 	return &header, &payload, nil
 }
 
+/*
 ///////////////////
 // A mock authorization provider type
 ///////////////////
@@ -226,3 +222,4 @@ func expectBadRequest(title string, t *testing.T, r *http.Response, xBody string
 		}
 	}
 }
+*/

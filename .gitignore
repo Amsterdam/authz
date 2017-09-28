@@ -6,3 +6,6 @@ goauth2
 
 # test config
 config.toml
+
+# vscode
+.vscode

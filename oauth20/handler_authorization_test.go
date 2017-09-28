@@ -1,24 +1,6 @@
 package oauth20
 
-import (
-	"net/http"
-	"net/http/httptest"
-	"net/url"
-	"strings"
-	"testing"
-)
-
-var testAuthzHandler *authorizationHandler
-
-func init() {
-	baseURL, _ := url.Parse("http://testserver/idp")
-
-	idps := map[string]*idpHandler{
-		"idp": &idpHandler{newBaseHandler(), testIdProvider(), baseURL, accessTokenEnc().accessTokenEncoder},
-	}
-	testAuthzHandler = &authorizationHandler{newBaseHandler(), idps}
-}
-
+/*
 type testAuthzRequest struct {
 	ClientId     string
 	RedirectURI  string
@@ -178,3 +160,4 @@ func TestAuthorizationHandler(t *testing.T) {
 		test.Do()
 	}
 }
+*/

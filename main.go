@@ -75,11 +75,6 @@ func conf() *config {
 
 func options(conf *config) []oauth20.Option {
 	var options []oauth20.Option
-
-	/////////////////////
-	// REQUIRED OPTIONS
-	/////////////////////
-
 	// IdP
 	if (conf.IdP != idpConfig{}) {
 		if idp, err := newDatapuntIdP(
@@ -97,11 +92,6 @@ func options(conf *config) []oauth20.Option {
 		log.Fatal("Must configure at least one registered client")
 	}
 	options = append(options, oauth20.Clients(conf.Clients))
-
-	////////////////////////
-	// OPTIONAL OPTIONS
-	////////////////////////
-
 	// Access token config
 	if (conf.Accesstoken != accessTokenConfig{}) {
 		a := oauth20.AccessTokenConfig(
