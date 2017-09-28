@@ -87,7 +87,7 @@ func options(conf *config) []oauth20.Option {
 		); err != nil {
 			log.Fatal(err)
 		} else {
-			options = append(options, oauth20.IdProvider("datapunt", idp))
+			options = append(options, oauth20.IdProvider(idp))
 		}
 	} else {
 		log.Fatal("Must configure an IdP")

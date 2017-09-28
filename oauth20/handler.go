@@ -6,7 +6,7 @@ import (
 	"math/rand"
 	"net/http"
 	"net/url"
-	"sync"
+	"strings"
 	"time"
 )
 
@@ -15,7 +15,7 @@ func init() {
 }
 
 type oauth20Handler struct {
-	baseURL url.URL
+	callbackURL url.URL
 
 	// Components / interfaces
 	accessTokenEnc *accessTokenEncoder
@@ -23,9 +23,6 @@ type oauth20Handler struct {
 	authz          Authz
 	idps           map[string]IdP
 	clientMap      ClientMap
-
-	// Concurrency control
-	clientMutex sync.RWMutex
 }
 
 // Handler() returns an http.Handler that handles OAuth 2.0 requests.
@@ -34,69 +31,85 @@ func Handler(baseURL string, options ...Option) (http.Handler, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &oauth20Handler{
-		baseURL: *u,
-		idps:    make(map[string]IdP),
+	u, err = u.Parse("callback")
+	if err != nil {
+		return nil, err
+	}
+	h := &oauth20Handler{
+		callbackURL: *u,
+		idps:        make(map[string]IdP),
 	}
 	// First we set options
 	for _, option := range options {
-		if err := option(s); err != nil {
+		if err := option(h); err != nil {
 			return nil, err
 		}
 	}
 	// Set default accesstoken config if not set
-	if s.accessTokenEnc == nil {
+	if h.accessTokenEnc == nil {
 		log.Println("WARN: accesstoken config missing, using random secret.")
 		secret := make([]byte, 16)
 		rand.Read(secret)
-		s.accessTokenEnc = newAccessTokenEncoder(secret, 36000, "goauth2")
+		h.accessTokenEnc = newAccessTokenEncoder(secret, 36000, "goauth2")
 	}
 	// Set default transient store if none given
-	if s.stateStore == nil {
+	if h.stateStore == nil {
 		log.Println("WARN: Using in-memory state storage")
-		s.stateStore = newStateStorage(newStateMap(), 60*time.Second)
+		h.stateStore = newStateStorage(newStateMap(), 60*time.Second)
 	}
 	// Set default scopeset if no authz provider is given
-	if s.authz == nil {
+	if h.authz == nil {
 		log.Println("WARN: using empty scope set")
-		s.authz = &emptyScopeSet{}
+		h.authz = &emptyScopeSet{}
 	}
 	// Set default clientmap if no ClientMap is given
-	if s.clientMap == nil {
+	if h.clientMap == nil {
 		log.Println("WARN: using empty client map")
-		s.clientMap = &emptyClientMap{}
+		h.clientMap = &emptyClientMap{}
 	}
 	// Warn if none is set
-	if len(s.idps) == 0 {
+	if len(h.idps) == 0 {
 		log.Println("WARN: no IdP registered")
 	}
 
-	return s.handler()
+	return h.handler()
 }
 
 // oauth20handler() creates the request handler for the handler.
-func (s *oauth20Handler) handler() (http.Handler, error) {
+func (h *oauth20Handler) handler() (http.Handler, error) {
 	mux := http.NewServeMux()
-	idps := make(map[string]*idpHandler)
-	baseHandler := &baseHandler{
-		s.clientMap, s.authz, s.stateStore,
-	}
-	pathTempl := "authorize/%s"
-	for idpId, idp := range s.idps {
-		relPath := fmt.Sprintf(pathTempl, idpId)
-		absPath := fmt.Sprintf("/%s", relPath)
-		if u, err := s.baseURL.Parse(relPath); err != nil {
-			return nil, err
-		} else {
-			handler := &idpHandler{baseHandler, idp, u, s.accessTokenEnc}
-			mux.Handle(absPath, handler)
-			idps[idpId] = handler
-		}
-	}
-	// Create authorization handler
-	authzHandler := &authorizationHandler{baseHandler, idps}
-	mux.Handle("/authorize", authzHandler)
+	mux.HandleFunc("/authorize", h.serveAuthorizationRequest)
+	mux.HandleFunc("/callback", h.serveIdPCallback)
 	return mux, nil
+}
+
+// oauth20Error
+func (h *oauth20Handler) errorResponse(
+	w http.ResponseWriter, r *url.URL, code string, desc string) {
+	query := r.Query()
+	query.Set("error", code)
+	query.Set("error_description", desc)
+	r.RawQuery = query.Encode()
+	headers := w.Header()
+	headers.Add("Location", r.String())
+	w.WriteHeader(http.StatusSeeOther)
+}
+
+func (h *oauth20Handler) implicitResponse(
+	w http.ResponseWriter, redirectURI *url.URL, accessToken string,
+	tokenType string, lifetime int64, scope []string, state string) {
+	v := url.Values{}
+	v.Set("access_token", accessToken)
+	v.Set("token_type", tokenType)
+	v.Set("expires_in", fmt.Sprintf("%d", lifetime))
+	v.Set("scope", strings.Join(scope, " "))
+	if len(state) > 0 {
+		v.Set("state", state)
+	}
+	fragment := v.Encode()
+	redir := fmt.Sprintf("%s#%s", redirectURI.String(), fragment)
+	w.Header().Add("Location", redir)
+	w.WriteHeader(http.StatusSeeOther)
 }
 
 // Interface StateKeeper is implemented by storage engines and used to
@@ -117,6 +130,8 @@ type User struct {
 
 // Interface IdP is implemented by identity providers.
 type IdP interface {
+	// ID returns the IdP's identifier
+	ID() string
 	// AuthnRedirect(...) returns an authentication URL and optional serialized
 	// state.
 	AuthnRedirect(callbackURL *url.URL) (*url.URL, []byte, error)
@@ -157,51 +172,4 @@ type Client struct {
 type ClientMap interface {
 	// Returns the client for this identifier or an error
 	Get(id string) (*Client, error)
-}
-
-// An option is a handler option that can be passed to New().
-type Option func(*oauth20Handler) error
-
-// StateStorage() is an option that sets the transient storage for the handler
-// instance.
-func StateStorage(engine StateKeeper, lifetime time.Duration) Option {
-	return func(s *oauth20Handler) error {
-		s.stateStore = newStateStorage(engine, lifetime)
-		return nil
-	}
-}
-
-// Clients() is an option that sets the given client mapping for the handler
-// instance.
-func Clients(m ClientMap) Option {
-	return func(s *oauth20Handler) error {
-		s.clientMap = m
-		return nil
-	}
-}
-
-// AuthzProvider() is an option that sets the given authorization provider for
-// the handler instance.
-func AuthzProvider(p Authz) Option {
-	return func(s *oauth20Handler) error {
-		s.authz = p
-		return nil
-	}
-}
-
-// AccessTokenConfig() is an option that configures access token JWTs.
-func AccessTokenConfig(secret []byte, lifetime int64, issuer string) Option {
-	return func(s *oauth20Handler) error {
-		s.accessTokenEnc = newAccessTokenEncoder(secret, lifetime, issuer)
-		return nil
-	}
-}
-
-// IdProvider is an option that adds the given IdP to this handler. If the IdP was
-// already registered it will be silently overwritten.
-func IdProvider(id string, a IdP) Option {
-	return func(s *oauth20Handler) error {
-		s.idps[id] = a
-		return nil
-	}
 }

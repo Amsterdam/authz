@@ -8,17 +8,9 @@ import (
 	"strings"
 )
 
-var grants = map[string]struct{}{
-	"code":  {},
-	"token": {},
-}
-
-type authorizationHandler struct {
-	*baseHandler
-	idps map[string]*idpHandler
-}
-
-func (h *authorizationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *oauth20Handler) serveAuthorizationRequest(
+	w http.ResponseWriter, r *http.Request,
+) {
 	if r.Method != "GET" {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
@@ -28,12 +20,12 @@ func (h *authorizationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		client      *Client
 		state       string
 		scopes      []string
-		idpHandler  *idpHandler
 		redirectURI *url.URL
+		idp         IdP
 	)
 	// client_id
 	if clientId, ok := query["client_id"]; ok {
-		if c, err := h.clients.Get(clientId[0]); err == nil {
+		if c, err := h.clientMap.Get(clientId[0]); err == nil {
 			client = c
 		} else {
 			w.WriteHeader(http.StatusBadRequest)
@@ -108,9 +100,7 @@ func (h *authorizationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	}
 	// Validate IdP and get idp handler url for this request
 	if idpId, ok := query["idp_id"]; ok {
-		if handler, ok := h.idps[idpId[0]]; ok {
-			idpHandler = handler
-		} else {
+		if idp, ok = h.idps[idpId[0]]; !ok {
 			h.errorResponse(w, redirectURI, "invalid_request", "unknown idp_id")
 			return
 		}
@@ -119,25 +109,21 @@ func (h *authorizationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	// Create a new authentication session
-	session, err := idpHandler.newAuthnSession()
-	if err != nil {
-		h.errorResponse(w, redirectURI, "server_error", "internal server error")
-		return
-	}
-	// Persist state of authz request
+	// state of authz request
 	authzState := &authorizationState{
 		ClientId:     client.Id,
 		RedirectURI:  redirectURI.String(),
 		ResponseType: client.GrantType,
 		Scope:        scopes,
 		State:        state,
-		IdPState:     session.IdPState,
+		IdPID:        idp.ID(),
 	}
-	if err := h.stateStore.persist(session.Token, authzState); err != nil {
+	redir, err := h.createSession(idp, authzState)
+	if err != nil {
 		h.errorResponse(w, redirectURI, "server_error", "internal server error")
 		return
 	}
 
-	w.Header().Set("Location", session.Redir)
+	w.Header().Set("Location", redir)
 	w.WriteHeader(http.StatusSeeOther)
 }

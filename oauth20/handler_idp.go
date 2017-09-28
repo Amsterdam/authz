@@ -8,14 +8,7 @@ import (
 	"net/url"
 )
 
-type idpHandler struct {
-	*baseHandler
-	IdP
-	baseURL      *url.URL
-	tokenEncoder *accessTokenEncoder
-}
-
-func (h *idpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *oauth20Handler) serveIdPCallback(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	token, ok := q["token"]
 	if !ok {
@@ -36,7 +29,13 @@ func (h *idpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	user, err := h.User(r, state.IdPState)
+	idp, ok := h.idps[state.IdPID]
+	if !ok {
+		log.Printf("Error finding IdP: %s\n", state.IdPID)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	user, err := idp.User(r, state.IdPState)
 	if err != nil {
 		log.Printf("Error authenticating user: %s\n", err)
 		h.errorResponse(w, redirectURI, "access_denied", "couldn't authenticate user")
@@ -51,13 +50,16 @@ func (h *idpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	accessToken, err := h.tokenEncoder.Encode(user.UID, grantedScopes)
+	accessToken, err := h.accessTokenEnc.Encode(user.UID, grantedScopes)
 	if err != nil {
 		log.Println(err)
 		h.errorResponse(w, redirectURI, "server_error", "internal server error")
 		return
 	}
-	h.implicitResponse(w, redirectURI, accessToken, "bearer", h.tokenEncoder.Lifetime(), grantedScopes, state.State)
+	h.implicitResponse(
+		w, redirectURI, accessToken, "bearer", h.accessTokenEnc.Lifetime(),
+		grantedScopes, state.State,
+	)
 }
 
 type authnSession struct {
@@ -66,21 +68,26 @@ type authnSession struct {
 	IdPState []byte
 }
 
-func (h *idpHandler) newAuthnSession() (*authnSession, error) {
+// createSession saves the current state of the authorization request and
+// returns a redirect URL for the given idp
+func (h *oauth20Handler) createSession(idp IdP, state *authorizationState) (string, error) {
+	// Create token
 	token := make([]byte, 16)
 	rand.Read(token)
-	b64token := base64.RawURLEncoding.EncodeToString(token)
-	callback := *h.baseURL
-	query := callback.Query()
-	query.Set("token", b64token)
-	callback.RawQuery = query.Encode()
-	redir, idpState, err := h.AuthnRedirect(&callback)
+	b64Token := base64.RawURLEncoding.EncodeToString(token)
+	// Add token to callback URL
+	query := url.Values{}
+	query.Set("token", b64Token)
+	callbackURL := h.callbackURL
+	callbackURL.RawQuery = query.Encode()
+	// Het authentication redirect
+	redir, idpState, err := idp.AuthnRedirect(&callbackURL)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	return &authnSession{
-		Token:    b64token,
-		Redir:    redir.String(),
-		IdPState: idpState,
-	}, nil
+	state.IdPState = idpState
+	if err := h.stateStore.persist(b64Token, state); err != nil {
+		return "", err
+	}
+	return redir.String(), nil
 }

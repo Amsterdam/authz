@@ -64,7 +64,12 @@ func newDatapuntIdP(
 	}
 }
 
-// Generate the Authentication redirect.
+// ID returns "datapunt"
+func (d *datapuntIdP) ID() string {
+	return "datapunt"
+}
+
+// AuthnRedirect generates the Authentication redirect.
 func (d *datapuntIdP) AuthnRedirect(callbackURL *url.URL) (*url.URL, []byte, error) {
 	var (
 		baseURL *url.URL
