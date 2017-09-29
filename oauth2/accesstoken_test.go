@@ -70,7 +70,7 @@ func decodeJWT(jwt string, secret string) (*accessTokenJWTHeader, *accessTokenJW
 	if err != nil {
 		return nil, nil, err
 	}
-	if err := json.Unmarshal(rawHeader, &header); err != nil {
+	if err = json.Unmarshal(rawHeader, &header); err != nil {
 		return nil, nil, err
 	}
 	rawPayload, err := base64.RawURLEncoding.DecodeString(b64payload)

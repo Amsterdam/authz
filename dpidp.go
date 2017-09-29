@@ -43,7 +43,7 @@ type authnHalLinkItem struct {
 }
 
 // An IdP implementation of the Datapunt IdP.
-type datapuntIdP struct {
+type datapuntIDP struct {
 	baseURL     string
 	accountsURL *url.URL
 	secret      []byte
@@ -52,25 +52,25 @@ type datapuntIdP struct {
 }
 
 // Constructor. Validating its config and creates the instance.
-func newDatapuntIdP(
-	baseURL string, accountsURL string, secret []byte,
-	apiKey string) (*datapuntIdP, error) {
-	if accURL, err := url.Parse(accountsURL); err != nil {
+func newDatapuntIDP(
+	baseURL string, accountsURL string, secret []byte, apiKey string,
+) (*datapuntIDP, error) {
+	accURL, err := url.Parse(accountsURL)
+	if err != nil {
 		return nil, errors.New("Invalid accounts URL for Datapunt IdP")
-	} else {
-		return &datapuntIdP{
-			baseURL, accURL, secret, apiKey, &http.Client{Timeout: 1 * time.Second},
-		}, nil
 	}
+	return &datapuntIDP{
+		baseURL, accURL, secret, apiKey, &http.Client{Timeout: 1 * time.Second},
+	}, nil
 }
 
 // ID returns "datapunt"
-func (d *datapuntIdP) ID() string {
+func (d *datapuntIDP) ID() string {
 	return "datapunt"
 }
 
 // AuthnRedirect generates the Authentication redirect.
-func (d *datapuntIdP) AuthnRedirect(callbackURL *url.URL) (*url.URL, []byte, error) {
+func (d *datapuntIDP) AuthnRedirect(callbackURL *url.URL) (*url.URL, []byte, error) {
 	var (
 		baseURL *url.URL
 		err     error
@@ -88,7 +88,7 @@ func (d *datapuntIdP) AuthnRedirect(callbackURL *url.URL) (*url.URL, []byte, err
 }
 
 // User returns a User and the original opaque token.
-func (d *datapuntIdP) User(r *http.Request, state []byte) (*oauth2.User, error) {
+func (d *datapuntIDP) User(r *http.Request, state []byte) (*oauth2.User, error) {
 	q := r.URL.Query()
 	if token, ok := q["aselect_credentials"]; ok {
 		tokenPayload, err := d.jwtPayload(token[0])
@@ -100,7 +100,7 @@ func (d *datapuntIdP) User(r *http.Request, state []byte) (*oauth2.User, error) 
 	return nil, errors.New("Invalid reply")
 }
 
-func (d *datapuntIdP) jwtPayload(token string) (*jwtPayload, error) {
+func (d *datapuntIDP) jwtPayload(token string) (*jwtPayload, error) {
 	parts := strings.Split(token, ".")
 	if len(parts) == 3 {
 		var (
@@ -149,7 +149,7 @@ func (d *datapuntIdP) jwtPayload(token string) (*jwtPayload, error) {
 	return nil, errors.New("Invalid credentials: token doesn't have 3 parts")
 }
 
-func (d *datapuntIdP) user(uid string) (*oauth2.User, error) {
+func (d *datapuntIDP) user(uid string) (*oauth2.User, error) {
 	accountURL, err := d.accountsURL.Parse(uid)
 	if err != nil {
 		return nil, err

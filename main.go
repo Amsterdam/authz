@@ -76,9 +76,9 @@ func conf() *config {
 func options(conf *config) []oauth2.Option {
 	var options []oauth2.Option
 	// IdP
-	if (conf.IdP != idpConfig{}) {
-		if idp, err := newDatapuntIdP(
-			conf.IdP.BaseURL, conf.IdP.AccountsURL, []byte(conf.IdP.Secret), conf.IdP.APIKey,
+	if (conf.IDP != idpConfig{}) {
+		if idp, err := newDatapuntIDP(
+			conf.IDP.BaseURL, conf.IDP.AccountsURL, []byte(conf.IDP.Secret), conf.IDP.APIKey,
 		); err != nil {
 			log.Fatal(err)
 		} else {

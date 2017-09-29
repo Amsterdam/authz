@@ -22,7 +22,7 @@ type config struct {
 	BaseURL      string            `toml:"base-url"`
 	PprofEnabled bool              `toml:"pprof-enabled"`
 	AuthnTimeout int               `toml:"authn-timeout"`
-	IdP          idpConfig         `toml:"idp"`
+	IDP          idpConfig         `toml:"idp"`
 	Clients      clientMap         `toml:"clients"`
 	Authz        authzConfig       `toml:"authorization"`
 	Redis        redisConfig       `toml:"redis"`
