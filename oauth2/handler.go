@@ -85,7 +85,7 @@ func (h *oauth20Handler) serveAuthorizationRequest(
 	w http.ResponseWriter, r *http.Request,
 ) {
 	if r.Method != "GET" {
-		w.WriteHeader(http.StatusMethodNotAllowed)
+		http.Error(w, "Invalid method", http.StatusMethodNotAllowed)
 		return
 	}
 	// state of authz request
@@ -101,13 +101,11 @@ func (h *oauth20Handler) serveAuthorizationRequest(
 		if c, err := h.clientMap.Get(authzState.ClientID); err == nil {
 			client = c
 		} else {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte("invalid client_id"))
+			http.Error(w, "invalid client_id", http.StatusBadRequest)
 			return
 		}
 	} else {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("missing client_id"))
+		http.Error(w, "missing client_id", http.StatusBadRequest)
 		return
 	}
 	// redirect_uri
@@ -122,8 +120,7 @@ func (h *oauth20Handler) serveAuthorizationRequest(
 		authzState.RedirectURI = client.Redirects[0]
 	}
 	if authzState.RedirectURI == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("missing or invalid redirect_uri"))
+		http.Error(w, "missing or invalid redirect_uri", http.StatusBadRequest)
 		return
 	}
 	redirectURI, err := url.Parse(authzState.RedirectURI)
@@ -197,15 +194,13 @@ func (h *oauth20Handler) serveIDPCallback(w http.ResponseWriter, r *http.Request
 	q := r.URL.Query()
 	token, ok := q["token"]
 	if !ok {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("token parameter missing."))
+		http.Error(w, "token parameter missing", http.StatusBadRequest)
 		return
 	}
 	var state authorizationState
 	if err := h.stateStore.restore(token[0], &state); err != nil {
 		log.Printf("Error restoring state token: %s\n", err)
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("invalid state token."))
+		http.Error(w, "invalid state token", http.StatusBadRequest)
 		return
 	}
 	redirectURI, err := url.Parse(state.RedirectURI)
