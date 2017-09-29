@@ -73,11 +73,7 @@ func Handler(baseURL string, options ...Option) (http.Handler, error) {
 		log.Println("WARN: no IDP registered")
 	}
 
-	return h.handler()
-}
-
-// oauth20handler() creates the request handler for the handler.
-func (h *oauth20Handler) handler() (http.Handler, error) {
+	// Create and return handler
 	mux := http.NewServeMux()
 	mux.HandleFunc("/authorize", h.serveAuthorizationRequest)
 	mux.HandleFunc("/callback", h.serveIDPCallback)
@@ -302,62 +298,4 @@ func (h *oauth20Handler) implicitResponse(
 	redir := fmt.Sprintf("%s#%s", redirectURI.String(), fragment)
 	w.Header().Add("Location", redir)
 	w.WriteHeader(http.StatusSeeOther)
-}
-
-// StateKeeper defines a storage engine used to store transient state data
-// throughout the handler.
-type StateKeeper interface {
-	Persist(key string, data string, lifetime time.Duration) error
-	Restore(key string) (string, error)
-}
-
-// User defines a user
-type User struct {
-	// UID is the user identifier.
-	UID string
-	// Roles is a slice of roles associated with this user.
-	Roles []string
-}
-
-// IDP defines an identity provider.
-type IDP interface {
-	// ID returns the IDP's identifier
-	ID() string
-	// AuthnRedirect(...) returns an authentication URL and optional serialized
-	// state.
-	AuthnRedirect(callbackURL *url.URL) (*url.URL, []byte, error)
-	// User receives the IDP's callback request and returns a User object or
-	// an error.
-	User(r *http.Request, state []byte) (*User, error)
-}
-
-// ScopeSet defines a set of scopes.
-type ScopeSet interface {
-	// ValidScope() returns true if scope is a subset of this scopeset.
-	ValidScope(scope ...string) bool
-}
-
-// Authz contains an authorization provider's scopes and can map a user on scopes.
-type Authz interface {
-	ScopeSet
-	// ScopeSetFor() returns the given user's authorized scopeset.
-	ScopeSetFor(u *User) ScopeSet
-}
-
-// Client contains all data needed for OAuth 2.0 clients.
-type Client struct {
-	// Client identifier
-	ID string
-	// list of registered redirects
-	Redirects []string
-	// client secret
-	Secret string
-	// Allowed grants (implicit, authz code, client credentials)
-	GrantType string
-}
-
-// ClientMap defines OAuth 2.0 clients.
-type ClientMap interface {
-	// Returns the client for this identifier or an error
-	Get(id string) (*Client, error)
 }
