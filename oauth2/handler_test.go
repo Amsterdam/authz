@@ -53,7 +53,7 @@ func TestAuthorizationHandler(t *testing.T) {
 		&testAuthzRequest{
 			Validate: func(r *http.Response) {
 				expectBadRequest(
-					"no parameters", t, r, "missing client_id",
+					"no parameters", t, r, "missing client_id\n",
 				)
 			},
 		},
@@ -62,7 +62,7 @@ func TestAuthorizationHandler(t *testing.T) {
 			ClientID: "bad",
 			Validate: func(r *http.Response) {
 				expectBadRequest(
-					"invalid redirect_uri", t, r, "invalid client_id",
+					"invalid redirect_uri", t, r, "invalid client_id\n",
 				)
 			},
 		},
@@ -71,7 +71,7 @@ func TestAuthorizationHandler(t *testing.T) {
 			ClientID: "testclient2",
 			Validate: func(r *http.Response) {
 				expectBadRequest(
-					"missing redirect_uri", t, r, "missing or invalid redirect_uri",
+					"missing redirect_uri", t, r, "missing or invalid redirect_uri\n",
 				)
 			},
 		},
@@ -81,7 +81,7 @@ func TestAuthorizationHandler(t *testing.T) {
 			RedirectURI: "http://bad/",
 			Validate: func(r *http.Response) {
 				expectBadRequest(
-					"bad redirect_uri", t, r, "missing or invalid redirect_uri",
+					"bad redirect_uri", t, r, "missing or invalid redirect_uri\n",
 				)
 			},
 		},
@@ -177,7 +177,7 @@ func TestEmptyCallbackRequest(t *testing.T) {
 	handler := testHandler("test")
 	handler.ServeHTTP(w, r)
 	resp := w.Result()
-	expectBadRequest("empty callback", t, resp, "token parameter missing.")
+	expectBadRequest("empty callback", t, resp, "token parameter missing\n")
 }
 
 func TestInvalidCallbackToken(t *testing.T) {
@@ -186,7 +186,7 @@ func TestInvalidCallbackToken(t *testing.T) {
 	handler := testHandler("test")
 	handler.ServeHTTP(w, r)
 	resp := w.Result()
-	expectBadRequest("invalid callback token", t, resp, "invalid state token.")
+	expectBadRequest("invalid callback token", t, resp, "invalid state token\n")
 }
 
 func TestValidCallbackToken(t *testing.T) {

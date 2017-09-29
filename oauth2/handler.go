@@ -15,7 +15,7 @@ func init() {
 	rand.Seed(time.Now().UTC().UnixNano())
 }
 
-type oauth20Handler struct {
+type handler struct {
 	callbackURL url.URL
 
 	// Components / interfaces
@@ -36,7 +36,7 @@ func Handler(baseURL string, options ...Option) (http.Handler, error) {
 	if err != nil {
 		return nil, err
 	}
-	h := &oauth20Handler{
+	h := &handler{
 		callbackURL: *u,
 		idps:        make(map[string]IDP),
 	}
@@ -81,7 +81,7 @@ func Handler(baseURL string, options ...Option) (http.Handler, error) {
 }
 
 // serveAuthorizationRequest handles an initial authorization request
-func (h *oauth20Handler) serveAuthorizationRequest(
+func (h *handler) serveAuthorizationRequest(
 	w http.ResponseWriter, r *http.Request,
 ) {
 	if r.Method != "GET" {
@@ -190,7 +190,7 @@ func (h *oauth20Handler) serveAuthorizationRequest(
 }
 
 // serveIDPCallback handles IDP callbacks
-func (h *oauth20Handler) serveIDPCallback(w http.ResponseWriter, r *http.Request) {
+func (h *handler) serveIDPCallback(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	token, ok := q["token"]
 	if !ok {
@@ -244,7 +244,7 @@ func (h *oauth20Handler) serveIDPCallback(w http.ResponseWriter, r *http.Request
 
 // authnSession saves the current state of the authorization request and
 // returns a redirect URL for the given idp
-func (h *oauth20Handler) authnSession(idp IDP, state *authorizationState) (string, error) {
+func (h *handler) authnSession(idp IDP, state *authorizationState) (string, error) {
 	// Create token
 	token := make([]byte, 16)
 	rand.Read(token)
@@ -267,7 +267,7 @@ func (h *oauth20Handler) authnSession(idp IDP, state *authorizationState) (strin
 }
 
 // oauth20Error
-func (h *oauth20Handler) errorResponse(
+func (h *handler) errorResponse(
 	w http.ResponseWriter, r *url.URL, code string, desc string) {
 	query := r.Query()
 	query.Set("error", code)
@@ -278,7 +278,7 @@ func (h *oauth20Handler) errorResponse(
 	w.WriteHeader(http.StatusSeeOther)
 }
 
-func (h *oauth20Handler) implicitResponse(
+func (h *handler) implicitResponse(
 	w http.ResponseWriter, redirectURI *url.URL, accessToken string,
 	tokenType string, lifetime int64, scope []string, state string) {
 	v := url.Values{}
