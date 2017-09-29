@@ -47,7 +47,7 @@ func AccessTokenConfig(secret []byte, lifetime int64, issuer string) Option {
 	}
 }
 
-// IdProvider is an option that adds the given IdP to this handler. If the IdP was
+// IDProvider is an option that adds the given IdP to this handler. If the IDP was
 // already registered it will be silently overwritten.
 func IDProvider(i IDP) Option {
 	return func(s *oauth20Handler) error {
