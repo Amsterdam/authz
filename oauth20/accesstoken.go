@@ -74,16 +74,16 @@ func (enc *accessTokenEncoder) Encode(subject string, scopes []string) (string, 
 
 func (enc *accessTokenEncoder) jwt(
 	header *accessTokenJWTHeader, payload *accessTokenJWTPayload) (string, error) {
-	headerJson, err := json.Marshal(header)
+	headerJSON, err := json.Marshal(header)
 	if err != nil {
 		return "", err
 	}
-	payloadJson, err := json.Marshal(payload)
+	payloadJSON, err := json.Marshal(payload)
 	if err != nil {
 		return "", err
 	}
-	headerB64 := base64.RawURLEncoding.EncodeToString(headerJson)
-	payloadB64 := base64.RawURLEncoding.EncodeToString(payloadJson)
+	headerB64 := base64.RawURLEncoding.EncodeToString(headerJSON)
+	payloadB64 := base64.RawURLEncoding.EncodeToString(payloadJSON)
 	mac := hmac.New(sha256.New, enc.secret)
 	mac.Write([]byte(fmt.Sprintf("%s.%s", headerB64, payloadB64)))
 	digest := mac.Sum(nil)

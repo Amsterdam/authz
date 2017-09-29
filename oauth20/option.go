@@ -2,10 +2,10 @@ package oauth20
 
 import "time"
 
-// An option is a handler option that can be passed to New().
+// Option is a handler settings that can be passed to Handler().
 type Option func(*oauth20Handler) error
 
-// StateStorage() is an option that sets the transient storage for the handler
+// StateStorage is an option that sets the transient storage for the handler
 // instance.
 func StateStorage(engine StateKeeper, lifetime time.Duration) Option {
 	return func(s *oauth20Handler) error {
@@ -14,7 +14,7 @@ func StateStorage(engine StateKeeper, lifetime time.Duration) Option {
 	}
 }
 
-// Clients() is an option that sets the given client mapping for the handler
+// Clients is an option that sets the given client mapping for the handler
 // instance.
 func Clients(m ClientMap) Option {
 	return func(s *oauth20Handler) error {
@@ -23,7 +23,7 @@ func Clients(m ClientMap) Option {
 	}
 }
 
-// AuthzProvider() is an option that sets the given authorization provider for
+// AuthzProvider is an option that sets the given authorization provider for
 // the handler instance.
 func AuthzProvider(p Authz) Option {
 	return func(s *oauth20Handler) error {
@@ -32,7 +32,7 @@ func AuthzProvider(p Authz) Option {
 	}
 }
 
-// AccessTokenConfig() is an option that configures access token JWTs.
+// AccessTokenConfig is an option that configures access token JWTs.
 func AccessTokenConfig(secret []byte, lifetime int64, issuer string) Option {
 	return func(s *oauth20Handler) error {
 		s.accessTokenEnc = newAccessTokenEncoder(secret, lifetime, issuer)
@@ -42,7 +42,7 @@ func AccessTokenConfig(secret []byte, lifetime int64, issuer string) Option {
 
 // IdProvider is an option that adds the given IdP to this handler. If the IdP was
 // already registered it will be silently overwritten.
-func IdProvider(i IdP) Option {
+func IDProvider(i IDP) Option {
 	return func(s *oauth20Handler) error {
 		s.idps[i.ID()] = i
 		return nil

@@ -46,4 +46,4 @@ granttype = "token"  # "code" | "token" | "client_credentials"
 [authorization]
 ## Authorization configuration.
 base-url = "https://acc.api.data.amsterdam.nl/authz_admin/"
-
+update-interval = 600

@@ -35,6 +35,8 @@ func TestEncode(t *testing.T) {
 func BenchmarkEncode(b *testing.B) {
 	enc := accessTokenEnc()
 	for i := 0; i < b.N; i++ {
-		enc.Encode("subject", []string{"abc", "def"})
+		if _, err := enc.Encode("subject", []string{"abc", "def"}); err != nil {
+			b.Fatal(err)
+		}
 	}
 }

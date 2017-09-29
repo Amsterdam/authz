@@ -9,9 +9,10 @@ import (
 )
 
 const (
-	defaultBindHost     = ""
-	defaultBindPort     = 8080
-	defaultAuthnTimeout = 600
+	defaultBindHost            = ""
+	defaultBindPort            = 8080
+	defaultAuthnTimeout        = 600
+	defaultAuthzUpdateInterval = 60
 )
 
 // Config represents the configuration format for the server.
@@ -30,7 +31,7 @@ type config struct {
 
 // accessToken configuration
 type accessTokenConfig struct {
-	Secret   string `toml"secret"`
+	Secret   string `toml:"secret"`
 	Lifetime int64  `toml:"lifetime"`
 	Issuer   string `toml:"issuer"`
 }
@@ -43,7 +44,8 @@ type redisConfig struct {
 
 // Datapunt authorization config
 type authzConfig struct {
-	BaseURL string `toml:"base-url"`
+	BaseURL        string `toml:"base-url"`
+	UpdateInterval int    `toml:"update-interval"`
 }
 
 // Datapunt authentication config
@@ -68,14 +70,14 @@ type clientMap map[string]clientConfig
 func (m clientMap) Get(id string) (*oauth20.Client, error) {
 	if c, ok := m[id]; ok {
 		return &oauth20.Client{
-			Id: id, Redirects: c.Redirects, Secret: c.Secret, GrantType: c.GrantType,
+			ID: id, Redirects: c.Redirects, Secret: c.Secret, GrantType: c.GrantType,
 		}, nil
 	}
 	return nil, errors.New("Unknown client id")
 }
 
-// LoadConfig returns an instance of Config with reasonable defaults.
-func LoadConfig(configPath string) (*config, error) {
+// loadConfig returns an instance of Config with reasonable defaults.
+func loadConfig(configPath string) (*config, error) {
 	config := &config{
 		BindHost:     defaultBindHost,
 		BindPort:     defaultBindPort,
@@ -85,6 +87,9 @@ func LoadConfig(configPath string) (*config, error) {
 		if err := tomlToConfig(configPath, config); err != nil {
 			return nil, err
 		}
+	}
+	if config.Authz.UpdateInterval == 0 {
+		config.Authz.UpdateInterval = defaultAuthzUpdateInterval
 	}
 	return config, nil
 }

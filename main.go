@@ -58,7 +58,7 @@ func main() {
 func conf() *config {
 	var configPath = flag.String("config", "", "Path to a configuration file.")
 	flag.Parse()
-	conf, err := LoadConfig(*configPath)
+	conf, err := loadConfig(*configPath)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -82,7 +82,7 @@ func options(conf *config) []oauth20.Option {
 		); err != nil {
 			log.Fatal(err)
 		} else {
-			options = append(options, oauth20.IdProvider(idp))
+			options = append(options, oauth20.IDProvider(idp))
 		}
 	} else {
 		log.Fatal("Must configure an IdP")
@@ -103,7 +103,7 @@ func options(conf *config) []oauth20.Option {
 	}
 	// Authorization provider
 	if (conf.Authz != authzConfig{}) {
-		if authz, err := newDatapuntAuthz(conf.Authz.BaseURL); err != nil {
+		if authz, err := newDatapuntAuthz(&conf.Authz); err != nil {
 			log.Fatal(err)
 		} else {
 			options = append(options, oauth20.AuthzProvider(authz))
@@ -118,6 +118,7 @@ func options(conf *config) []oauth20.Option {
 	return options
 }
 
+// Handler is a wrapper that adds middleware for profiling and ping
 type Handler struct {
 	http.Handler
 	Config *config

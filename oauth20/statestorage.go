@@ -7,13 +7,13 @@ import (
 )
 
 type authorizationState struct {
-	ClientId     string
+	ClientID     string
 	RedirectURI  string
 	ResponseType string
 	Scope        []string
 	State        string
-	IdPID        string
-	IdPState     []byte
+	IDPID        string
+	IDPState     []byte
 }
 
 type stateStorage struct {
@@ -32,10 +32,7 @@ func (store *stateStorage) restore(key string, e interface{}) error {
 	}
 	data := bytes.NewBufferString(encoded)
 	dec := gob.NewDecoder(data)
-	if err := dec.Decode(e); err != nil {
-		return err
-	}
-	return nil
+	return dec.Decode(e)
 }
 
 func (store *stateStorage) persist(key string, data interface{}) error {

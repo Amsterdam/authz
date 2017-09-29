@@ -47,33 +47,33 @@ func (s datapuntScopeSet) ValidScope(scope ...string) bool {
 }
 
 type datapuntAuthz struct {
-	allScopes datapuntScopeSet
-	scopeLock sync.RWMutex
-	roleLock  sync.RWMutex
-	roleMap   map[string][]string
-	ticker    *time.Ticker
-	setURL    string
-	etag      string
-	client    http.Client
+	allScopes      datapuntScopeSet
+	scopeLock      sync.RWMutex
+	roleLock       sync.RWMutex
+	roleMap        map[string][]string
+	setURL         string
+	etag           string
+	client         http.Client
+	updateInterval int
 }
 
-func newDatapuntAuthz(u string) (*datapuntAuthz, error) {
+func newDatapuntAuthz(conf *authzConfig) (*datapuntAuthz, error) {
 	var setURL *url.URL
-	if baseURL, err := url.Parse(u); err != nil {
+	baseURL, err := url.Parse(conf.BaseURL)
+	if err != nil {
 		return nil, err
-	} else {
-		if setURL, err = baseURL.Parse("profiles"); err != nil {
-			return nil, err
-		}
-		query := setURL.Query()
-		query.Set("embed", "item")
-		setURL.RawQuery = query.Encode()
 	}
+	if setURL, err = baseURL.Parse("profiles"); err != nil {
+		return nil, err
+	}
+	query := setURL.Query()
+	query.Set("embed", "item")
+	setURL.RawQuery = query.Encode()
 	provider := &datapuntAuthz{
-		allScopes: make(datapuntScopeSet),
-		ticker:    time.NewTicker(10 * time.Second),
-		setURL:    setURL.String(),
-		client:    http.Client{Timeout: 850 * time.Millisecond},
+		allScopes:      make(datapuntScopeSet),
+		setURL:         setURL.String(),
+		client:         http.Client{Timeout: 850 * time.Millisecond},
+		updateInterval: conf.UpdateInterval,
 	}
 	if err := provider.runUpdate(); err != nil {
 		return nil, err
@@ -102,15 +102,11 @@ func (s *datapuntAuthz) ScopeSetFor(u *oauth20.User) oauth20.ScopeSet {
 }
 
 func (s *datapuntAuthz) updater() {
-	for {
-		select {
-		case <-s.ticker.C:
-			if err := s.runUpdate(); err != nil {
-				log.Println("ERROR: while updating scope map: %s", err)
-			}
+	for range time.Tick(time.Duration(s.updateInterval) * time.Second) {
+		if err := s.runUpdate(); err != nil {
+			log.Printf("ERROR: while updating scope map: %s\n", err)
 		}
 	}
-	log.Printf("INFO: Stopped datapunt scopeset updater")
 }
 
 func (s *datapuntAuthz) runUpdate() error {
@@ -132,7 +128,7 @@ func (s *datapuntAuthz) runUpdate() error {
 		return nil
 	}
 	if resp.StatusCode != 200 {
-		log.Printf("WARN: %s response from Datapunt authz: %s\n", resp.Status)
+		log.Printf("WARN: unexpected response from Datapunt authz: %s\n", resp.Status)
 		return nil
 	}
 	var (

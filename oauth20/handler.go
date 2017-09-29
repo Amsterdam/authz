@@ -22,11 +22,11 @@ type oauth20Handler struct {
 	accessTokenEnc *accessTokenEncoder
 	stateStore     *stateStorage
 	authz          Authz
-	idps           map[string]IdP
+	idps           map[string]IDP
 	clientMap      ClientMap
 }
 
-// Handler() returns an http.Handler that handles OAuth 2.0 requests.
+// Handler returns an http.Handler that handles OAuth 2.0 requests.
 func Handler(baseURL string, options ...Option) (http.Handler, error) {
 	u, err := url.Parse(baseURL)
 	if err != nil {
@@ -38,7 +38,7 @@ func Handler(baseURL string, options ...Option) (http.Handler, error) {
 	}
 	h := &oauth20Handler{
 		callbackURL: *u,
-		idps:        make(map[string]IdP),
+		idps:        make(map[string]IDP),
 	}
 	// First we set options
 	for _, option := range options {
@@ -65,12 +65,12 @@ func Handler(baseURL string, options ...Option) (http.Handler, error) {
 	}
 	// Set default clientmap if no ClientMap is given
 	if h.clientMap == nil {
-		log.Println("WARN: using empty client map")
+		log.Println("WARN: no clientmap given")
 		h.clientMap = &emptyClientMap{}
 	}
 	// Warn if none is set
 	if len(h.idps) == 0 {
-		log.Println("WARN: no IdP registered")
+		log.Println("WARN: no IDP registered")
 	}
 
 	return h.handler()
@@ -80,7 +80,7 @@ func Handler(baseURL string, options ...Option) (http.Handler, error) {
 func (h *oauth20Handler) handler() (http.Handler, error) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/authorize", h.serveAuthorizationRequest)
-	mux.HandleFunc("/callback", h.serveIdPCallback)
+	mux.HandleFunc("/callback", h.serveIDPCallback)
 	return mux, nil
 }
 
@@ -92,17 +92,17 @@ func (h *oauth20Handler) serveAuthorizationRequest(
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
+	// state of authz request
+	authzState := &authorizationState{}
 	var (
-		query       = r.URL.Query()
-		client      *Client
-		state       string
-		scopes      []string
-		redirectURI *url.URL
-		idp         IdP
+		query  = r.URL.Query()
+		client *Client
+		idp    IDP
 	)
 	// client_id
-	if clientId, ok := query["client_id"]; ok {
-		if c, err := h.clientMap.Get(clientId[0]); err == nil {
+	if clientID, ok := query["client_id"]; ok {
+		authzState.ClientID = clientID[0]
+		if c, err := h.clientMap.Get(authzState.ClientID); err == nil {
 			client = c
 		} else {
 			w.WriteHeader(http.StatusBadRequest)
@@ -115,28 +115,26 @@ func (h *oauth20Handler) serveAuthorizationRequest(
 		return
 	}
 	// redirect_uri
-	var redirect string
 	if redir, ok := query["redirect_uri"]; ok {
 		for _, r := range client.Redirects {
 			if redir[0] == r {
-				redirect = r
+				authzState.RedirectURI = r
 				break
 			}
 		}
 	} else if len(client.Redirects) == 1 {
-		redirect = client.Redirects[0]
+		authzState.RedirectURI = client.Redirects[0]
 	}
-	if redirect == "" {
+	if authzState.RedirectURI == "" {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("missing or invalid redirect_uri"))
 		return
 	}
-	if r, err := url.Parse(redirect); err != nil {
+	redirectURI, err := url.Parse(authzState.RedirectURI)
+	if err != nil {
 		log.Printf("ERROR: registered redirect is invalid: %s\n", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
-	} else {
-		redirectURI = r
 	}
 	// response_type
 	responseType, ok := query["response_type"]
@@ -151,9 +149,10 @@ func (h *oauth20Handler) serveAuthorizationRequest(
 		)
 		return
 	}
+	authzState.ResponseType = client.GrantType
 	// state
 	if s, ok := query["state"]; ok {
-		state = s[0]
+		authzState.State = s[0]
 	}
 	// scope
 	scopeMap := make(map[string]struct{})
@@ -169,15 +168,16 @@ func (h *oauth20Handler) serveAuthorizationRequest(
 			scopeMap[scope] = struct{}{}
 		}
 	}
-	scopes = make([]string, len(scopeMap))
+	authzState.Scope = make([]string, len(scopeMap))
 	i := 0
 	for k := range scopeMap {
-		scopes[i] = k
+		authzState.Scope[i] = k
 		i++
 	}
-	// Validate IdP and get idp handler url for this request
-	if idpId, ok := query["idp_id"]; ok {
-		if idp, ok = h.idps[idpId[0]]; !ok {
+	// Validate IDP and get idp handler url for this request
+	if idpID, ok := query["idp_id"]; ok {
+		authzState.IDPID = idpID[0]
+		if idp, ok = h.idps[authzState.IDPID]; !ok {
 			h.errorResponse(w, redirectURI, "invalid_request", "unknown idp_id")
 			return
 		}
@@ -185,28 +185,19 @@ func (h *oauth20Handler) serveAuthorizationRequest(
 		h.errorResponse(w, redirectURI, "invalid_request", "idp_id missing")
 		return
 	}
-	// Create a new authentication session
-	// state of authz request
-	authzState := &authorizationState{
-		ClientId:     client.Id,
-		RedirectURI:  redirectURI.String(),
-		ResponseType: client.GrantType,
-		Scope:        scopes,
-		State:        state,
-		IdPID:        idp.ID(),
-	}
-	redir, err := h.authnSession(idp, authzState)
+	// Create authn session
+	authnRedirect, err := h.authnSession(idp, authzState)
 	if err != nil {
 		h.errorResponse(w, redirectURI, "server_error", "internal server error")
 		return
 	}
 
-	w.Header().Set("Location", redir)
+	w.Header().Set("Location", authnRedirect)
 	w.WriteHeader(http.StatusSeeOther)
 }
 
-// serveIdPCallback handles IdP callbacks
-func (h *oauth20Handler) serveIdPCallback(w http.ResponseWriter, r *http.Request) {
+// serveIDPCallback handles IDP callbacks
+func (h *oauth20Handler) serveIDPCallback(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	token, ok := q["token"]
 	if !ok {
@@ -227,13 +218,13 @@ func (h *oauth20Handler) serveIdPCallback(w http.ResponseWriter, r *http.Request
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	idp, ok := h.idps[state.IdPID]
+	idp, ok := h.idps[state.IDPID]
 	if !ok {
-		log.Printf("Error finding IdP: %s\n", state.IdPID)
+		log.Printf("Error finding IDP: %s\n", state.IDPID)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	user, err := idp.User(r, state.IdPState)
+	user, err := idp.User(r, state.IDPState)
 	if err != nil {
 		log.Printf("Error authenticating user: %s\n", err)
 		h.errorResponse(w, redirectURI, "access_denied", "couldn't authenticate user")
@@ -262,7 +253,7 @@ func (h *oauth20Handler) serveIdPCallback(w http.ResponseWriter, r *http.Request
 
 // authnSession saves the current state of the authorization request and
 // returns a redirect URL for the given idp
-func (h *oauth20Handler) authnSession(idp IdP, state *authorizationState) (string, error) {
+func (h *oauth20Handler) authnSession(idp IDP, state *authorizationState) (string, error) {
 	// Create token
 	token := make([]byte, 16)
 	rand.Read(token)
@@ -277,7 +268,7 @@ func (h *oauth20Handler) authnSession(idp IdP, state *authorizationState) (strin
 	if err != nil {
 		return "", err
 	}
-	state.IdPState = idpState
+	state.IDPState = idpState
 	if err := h.stateStore.persist(b64Token, state); err != nil {
 		return "", err
 	}
@@ -313,15 +304,14 @@ func (h *oauth20Handler) implicitResponse(
 	w.WriteHeader(http.StatusSeeOther)
 }
 
-// Interface StateKeeper is implemented by storage engines and used to
-// store transient state data throughout the handler.
+// StateKeeper defines a storage engine used to store transient state data
+// throughout the handler.
 type StateKeeper interface {
 	Persist(key string, data string, lifetime time.Duration) error
 	Restore(key string) (string, error)
 }
 
-// Interface User is implemented by identity providers and used by
-// authorization providers.
+// User defines a user
 type User struct {
 	// UID is the user identifier.
 	UID string
@@ -329,37 +319,35 @@ type User struct {
 	Roles []string
 }
 
-// Interface IdP is implemented by identity providers.
-type IdP interface {
-	// ID returns the IdP's identifier
+// IDP defines an identity provider.
+type IDP interface {
+	// ID returns the IDP's identifier
 	ID() string
 	// AuthnRedirect(...) returns an authentication URL and optional serialized
 	// state.
 	AuthnRedirect(callbackURL *url.URL) (*url.URL, []byte, error)
-	// User receives the IdP's callback request and returns a User object or
+	// User receives the IDP's callback request and returns a User object or
 	// an error.
 	User(r *http.Request, state []byte) (*User, error)
 }
 
-// The ScopeSet interface is implemented by authorization providers to allow
-// membership tests on its total set of scopes.
+// ScopeSet defines a set of scopes.
 type ScopeSet interface {
 	// ValidScope() returns true if scope is a subset of this scopeset.
 	ValidScope(scope ...string) bool
 }
 
-// The Authz interface is implemented by authorization providers to extract a
-// user's authorized scopeset and the full scopeset supported by the provider.
+// Authz contains an authorization provider's scopes and can map a user on scopes.
 type Authz interface {
 	ScopeSet
 	// ScopeSetFor() returns the given user's authorized scopeset.
 	ScopeSetFor(u *User) ScopeSet
 }
 
-// The Client type contains all data needed for OAuth 2.0 clients.
+// Client contains all data needed for OAuth 2.0 clients.
 type Client struct {
 	// Client identifier
-	Id string
+	ID string
 	// list of registered redirects
 	Redirects []string
 	// client secret
@@ -368,8 +356,7 @@ type Client struct {
 	GrantType string
 }
 
-// The ClientMap interface is implemented for OAuth 2.0 clients and used to
-// authenticate and validate client data provided in all authorization flows.
+// ClientMap defines OAuth 2.0 clients.
 type ClientMap interface {
 	// Returns the client for this identifier or an error
 	Get(id string) (*Client, error)

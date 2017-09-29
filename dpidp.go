@@ -110,17 +110,17 @@ func (d *datapuntIdP) jwtPayload(token string) (*jwtPayload, error) {
 		b64header, b64payload, b64digest := parts[0], parts[1], parts[2]
 		// Decode and verify the header
 		if jsonHeader, err := base64.RawURLEncoding.DecodeString(b64header); err == nil {
-			if err := json.Unmarshal(jsonHeader, &header); err != nil {
+			if err = json.Unmarshal(jsonHeader, &header); err != nil {
 				return nil, err
 			}
 		} else {
 			return nil, err
 		}
 		if header.Algorithm != "HS256" {
-			return nil, errors.New(fmt.Sprintf("Invalid credentials: unsupported algorithm %s", header.Algorithm))
+			return nil, fmt.Errorf("Invalid credentials: unsupported algorithm %s", header.Algorithm)
 		}
 		if header.Type != "JWT" {
-			return nil, errors.New(fmt.Sprintf("Invalid credentials: unsupported token type %s", header.Type))
+			return nil, fmt.Errorf("Invalid credentials: unsupported token type %s", header.Type)
 		}
 		// Decode and verify the signature
 		signingInput := []byte(fmt.Sprintf("%v.%v", b64header, b64payload))
@@ -134,7 +134,7 @@ func (d *datapuntIdP) jwtPayload(token string) (*jwtPayload, error) {
 		}
 		// Decode the payload
 		if jsonPayload, err := base64.RawURLEncoding.DecodeString(b64payload); err == nil {
-			if err := json.Unmarshal(jsonPayload, &payload); err != nil {
+			if err = json.Unmarshal(jsonPayload, &payload); err != nil {
 				return nil, err
 			}
 		} else {
@@ -178,5 +178,5 @@ func (d *datapuntIdP) user(uid string) (*oauth20.User, error) {
 	for _, role := range account.Links.Roles {
 		roles = append(roles, role.Name)
 	}
-	return &oauth20.User{uid, roles}, nil
+	return &oauth20.User{UID: uid, Roles: roles}, nil
 }

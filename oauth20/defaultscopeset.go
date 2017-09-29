@@ -9,6 +9,6 @@ func (p *emptyScopeSet) ScopeSetFor(u *User) ScopeSet {
 }
 
 // emptyScopeSet contains no valid scopes.
-func (s *emptyScopeSet) ValidScope(scope ...string) bool {
+func (p *emptyScopeSet) ValidScope(scope ...string) bool {
 	return false
 }

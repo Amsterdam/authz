@@ -9,7 +9,9 @@ func TestStateMap(t *testing.T) {
 	key, value := "key", "value"
 	m := newStateMap()
 	// test persistence
-	m.Persist(key, value, time.Duration(2)*time.Second)
+	if err := m.Persist(key, value, 2*time.Second); err != nil {
+		t.Fatal(err)
+	}
 	// restore
 	if res, err := m.Restore(key); err != nil {
 		t.Fatal(err)
@@ -21,7 +23,7 @@ func TestStateMap(t *testing.T) {
 		t.Fatal("Key wasn't deleted from map!")
 	}
 	// persist and let timeout pass
-	m.Persist(key, value, time.Duration(1)*time.Nanosecond)
+	m.Persist(key, value, time.Nanosecond)
 	time.Sleep(2 * time.Nanosecond)
 	if _, err := m.Restore(key); err == nil {
 		t.Fatal("timout didn't work")

@@ -28,21 +28,19 @@ func (s *stateMap) Persist(key string, value string, lifetime time.Duration) err
 	return nil
 }
 
-func (s *stateMap) Restore(key string) (result string, err error) {
+func (s *stateMap) Restore(key string) (string, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	val, valOk := s.values[key]
 	exp, expOk := s.expiries[key]
-	if valOk && expOk && exp.After(time.Now()) {
-		result = val
-	} else {
-		err = fmt.Errorf("key %s not found", key)
-	}
 	if expOk {
 		delete(s.expiries, key)
 	}
 	if valOk {
 		delete(s.values, key)
 	}
-	return val, err
+	if !valOk || !expOk || time.Now().After(exp) {
+		return "", fmt.Errorf("key %s not found", key)
+	}
+	return val, nil
 }
