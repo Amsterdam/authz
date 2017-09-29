@@ -1,4 +1,4 @@
-package oauth20
+package oauth2
 
 import (
 	"encoding/base64"
@@ -51,7 +51,7 @@ func Handler(baseURL string, options ...Option) (http.Handler, error) {
 		log.Println("WARN: accesstoken config missing, using random secret.")
 		secret := make([]byte, 16)
 		rand.Read(secret)
-		h.accessTokenEnc = newAccessTokenEncoder(secret, 36000, "goauth2")
+		h.accessTokenEnc = newAccessTokenEncoder(secret, 36000, "oauth2")
 	}
 	// Set default transient store if none given
 	if h.stateStore == nil {

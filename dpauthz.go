@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/amsterdam/goauth2/oauth20"
+	"github.com/amsterdam/authz/oauth2"
 )
 
 type authzHalObject struct {
@@ -89,7 +89,7 @@ func (s *datapuntAuthz) ValidScope(scope ...string) bool {
 	return s.allScopes.ValidScope(scope...)
 }
 
-func (s *datapuntAuthz) ScopeSetFor(u *oauth20.User) oauth20.ScopeSet {
+func (s *datapuntAuthz) ScopeSetFor(u *oauth2.User) oauth2.ScopeSet {
 	scopeSet := make(datapuntScopeSet)
 	s.roleLock.RLock()
 	defer s.roleLock.RUnlock()

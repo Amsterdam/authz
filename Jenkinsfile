@@ -1,8 +1,8 @@
 #!groovy
 
-String IMAGE = "build.datapunt.amsterdam.nl:5000/datapunt/goauth2:${env.BUILD_NUMBER}"
+String IMAGE = "build.datapunt.amsterdam.nl:5000/datapunt/authz:${env.BUILD_NUMBER}"
 String BRANCH = "${env.BRANCH_NAME}"
-String PLAYBOOK = "deploy-goauth2.yml"
+String PLAYBOOK = "deploy-authz.yml"
 
 def tryStep(String message, Closure block, Closure tearDown = null) {
     try {
@@ -66,7 +66,7 @@ if (BRANCH == "master") {
 
 
     stage('Waiting for approval') {
-        slackSend channel: '#ci-channel', color: 'warning', message: 'GOAuth2 is waiting for Production Release - please confirm'
+        slackSend channel: '#ci-channel', color: 'warning', message: 'Authz service is waiting for Production Release - please confirm'
         input "Deploy to Production?"
     }
 

@@ -1,11 +1,11 @@
 /*
-Package oauth20 provides a fully customizable OAuth 2.0 authorization service
+Package oauth2 provides a fully customizable OAuth 2.0 authorization service
 http.handler.
 
 This package currently supports the implicit flow only. Other flows will be
 supported in the future. See RFC6749 for more details.
 
-To use oauth20, create a handler and run an HTTP server:
+To use oauth2, create a handler and run an HTTP server:
 
 	package main
 
@@ -14,13 +14,13 @@ To use oauth20, create a handler and run an HTTP server:
 		"net/http"
 		"net/url"
 
-		"github.com/amsterdam/goauth2/oauth20"
+		"github.com/amsterdam/authz/oauth2"
 	)
 
 	func main() {
 		bindAddress := ":8080"
 		baseAddress, _ := url.Parse("http://localhost:8080/")
-		handler, _ := oauth20.Handler(baseAddress)
+		handler, _ := oauth2.Handler(baseAddress)
 		log.Fatal(http.ListenAndServe(bindAddress, handler))
 	}
 
@@ -42,14 +42,14 @@ be very useful:
 
 A minimally useful service provides implementations of:
 
-* oauth20.ClientMap: a registry of clients that are known by the service;
-* oauth20.IdP: an identity provider, so users can authenticate;
-* oauth20.Authz: the scopes and roles supported by the service;
+* oauth2.ClientMap: a registry of clients that are known by the service;
+* oauth2.IdP: an identity provider, so users can authenticate;
+* oauth2.Authz: the scopes and roles supported by the service;
 
 ... and configuration for the accesstokens: the shared secret, the token lifetime and the token issuer identifier.
 
 If you run the service on more than a single node you may also want to use external
-state storage such as Redis. To do so, implement the oauth20.StateKeeper interface.
+state storage such as Redis. To do so, implement the oauth2.StateKeeper interface.
 
 */
-package oauth20
+package oauth2

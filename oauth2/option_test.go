@@ -1,4 +1,4 @@
-package oauth20
+package oauth2
 
 import (
 	"testing"

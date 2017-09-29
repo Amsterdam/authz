@@ -1,4 +1,4 @@
-// Command goauth2 runs Datapunt Amsterdam's OAuth 2 (RFC 6749) service.
+// Command authz runs Datapunt Amsterdam's OAuth 2 (RFC 6749) service.
 package main
 
 import (
@@ -14,7 +14,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/amsterdam/goauth2/oauth20"
+	"github.com/amsterdam/authz/oauth2"
 )
 
 func main() {
@@ -25,7 +25,7 @@ func main() {
 	opts := options(conf)
 
 	// Create handler
-	oauthHandler, err := oauth20.Handler(conf.BaseURL, opts...)
+	oauthHandler, err := oauth2.Handler(conf.BaseURL, opts...)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -73,8 +73,8 @@ func conf() *config {
 	return conf
 }
 
-func options(conf *config) []oauth20.Option {
-	var options []oauth20.Option
+func options(conf *config) []oauth2.Option {
+	var options []oauth2.Option
 	// IdP
 	if (conf.IdP != idpConfig{}) {
 		if idp, err := newDatapuntIdP(
@@ -82,7 +82,7 @@ func options(conf *config) []oauth20.Option {
 		); err != nil {
 			log.Fatal(err)
 		} else {
-			options = append(options, oauth20.IDProvider(idp))
+			options = append(options, oauth2.IDProvider(idp))
 		}
 	} else {
 		log.Fatal("Must configure an IdP")
@@ -91,10 +91,10 @@ func options(conf *config) []oauth20.Option {
 	if len(conf.Clients) == 0 {
 		log.Fatal("Must configure at least one registered client")
 	}
-	options = append(options, oauth20.Clients(conf.Clients))
+	options = append(options, oauth2.Clients(conf.Clients))
 	// Access token config
 	if (conf.Accesstoken != accessTokenConfig{}) {
-		a := oauth20.AccessTokenConfig(
+		a := oauth2.AccessTokenConfig(
 			[]byte(conf.Accesstoken.Secret),
 			conf.Accesstoken.Lifetime,
 			conf.Accesstoken.Issuer,
@@ -106,14 +106,14 @@ func options(conf *config) []oauth20.Option {
 		if authz, err := newDatapuntAuthz(&conf.Authz); err != nil {
 			log.Fatal(err)
 		} else {
-			options = append(options, oauth20.AuthzProvider(authz))
+			options = append(options, oauth2.AuthzProvider(authz))
 		}
 	}
 	// Storage provider
 	if (conf.Redis != redisConfig{}) {
 		engine := newRedisStorage(conf.Redis.Address, conf.Redis.Password)
 		timeout := time.Duration(conf.AuthnTimeout) * time.Second
-		options = append(options, oauth20.StateStorage(engine, timeout))
+		options = append(options, oauth2.StateStorage(engine, timeout))
 	}
 	return options
 }

@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 
 	"github.com/BurntSushi/toml"
-	"github.com/amsterdam/goauth2/oauth20"
+	"github.com/amsterdam/authz/oauth2"
 )
 
 const (
@@ -66,10 +66,10 @@ type clientConfig struct {
 // Client lookup
 type clientMap map[string]clientConfig
 
-// Implements oauth20.ClientMap
-func (m clientMap) Get(id string) (*oauth20.Client, error) {
+// Implements oauth2.ClientMap
+func (m clientMap) Get(id string) (*oauth2.Client, error) {
 	if c, ok := m[id]; ok {
-		return &oauth20.Client{
+		return &oauth2.Client{
 			ID: id, Redirects: c.Redirects, Secret: c.Secret, GrantType: c.GrantType,
 		}, nil
 	}

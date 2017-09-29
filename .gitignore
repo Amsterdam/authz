@@ -1,5 +1,5 @@
 # the goauth2 binary
-goauth2
+authz
 
 # fuzz zips
 *-fuzz.zip

@@ -1,6 +1,6 @@
-# GOAuth 2.0: OAuth 2.0 authorization service written in Go
+# Authz: OAuth 2.0 authorization service written in Go
 
-[![GoDoc](https://godoc.org/github.com/amsterdam/goauth2?status.svg)](https://godoc.org/github.com/amsterdam/goauth2) [![license](https://img.shields.io/badge/licence-Mozilla%20Public%20Licence%20v2.0-blue.svg)](https://www.mozilla.org/en-US/MPL/2.0/)
+[![GoDoc](https://godoc.org/github.com/amsterdam/authz/oauth2?status.svg)](https://godoc.org/github.com/amsterdam/authz/oauth2) [![license](https://img.shields.io/badge/licence-Mozilla%20Public%20Licence%20v2.0-blue.svg)](https://www.mozilla.org/en-US/MPL/2.0/)
 
 ---
 
@@ -9,16 +9,16 @@
 Locally:
 
 ```
-$ go get github.com/amsterdam/goauth2
-$ ./goauth2
+$ go get github.com/amsterdam/authz
+$ authz
 $ curl http://localhost:8080/authorize?...
 ```
 
 Using Docker:
 
 ```
-$ docker build -t goauth2 .
-$ docker run --rm --expose 8080 -p 8080:8080 goauth2 --bind :8080
+$ docker build -t authz .
+$ docker run --rm --expose 8080 -p 8080:8080 authz --bind :8080
 $ curl http://localhost:8080/authorize?...
 ```
 
@@ -29,9 +29,9 @@ $ curl http://localhost:8080/authorize?...
 This is how to grab the sources and install dependencies using gdm:
 
 ```
-$ mkdir -p $GOPATH/src/github.com/amsterdam/goauth2
-$ cd $GOPATH/src/github.com/amsterdam/goauth2
-$ git clone https://github.com/amsterdam/goauth2.git
+$ mkdir -p $GOPATH/src/github.com/amsterdam/authz
+$ cd $GOPATH/src/github.com/amsterdam/authz
+$ git clone https://github.com/amsterdam/authz.git
 $ go get github.com/sparrc/gdm
 $ gdm restore
 ```

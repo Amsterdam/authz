@@ -1,6 +1,6 @@
 FROM golang:latest
-  WORKDIR /go/src/github.com/amsterdam/goauth2
-  COPY . /go/src/github.com/amsterdam/goauth2
+  WORKDIR /go/src/github.com/amsterdam/authz
+  COPY . /go/src/github.com/amsterdam/authz
   RUN go get github.com/sparrc/gdm
   RUN gdm restore
   RUN go test -cover -bench=. ./...

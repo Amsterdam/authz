@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/amsterdam/goauth2/oauth20"
+	"github.com/amsterdam/authz/oauth2"
 )
 
 type jwtHeader struct {
@@ -88,7 +88,7 @@ func (d *datapuntIdP) AuthnRedirect(callbackURL *url.URL) (*url.URL, []byte, err
 }
 
 // User returns a User and the original opaque token.
-func (d *datapuntIdP) User(r *http.Request, state []byte) (*oauth20.User, error) {
+func (d *datapuntIdP) User(r *http.Request, state []byte) (*oauth2.User, error) {
 	q := r.URL.Query()
 	if token, ok := q["aselect_credentials"]; ok {
 		tokenPayload, err := d.jwtPayload(token[0])
@@ -149,7 +149,7 @@ func (d *datapuntIdP) jwtPayload(token string) (*jwtPayload, error) {
 	return nil, errors.New("Invalid credentials: token doesn't have 3 parts")
 }
 
-func (d *datapuntIdP) user(uid string) (*oauth20.User, error) {
+func (d *datapuntIdP) user(uid string) (*oauth2.User, error) {
 	accountURL, err := d.accountsURL.Parse(uid)
 	if err != nil {
 		return nil, err
@@ -178,5 +178,5 @@ func (d *datapuntIdP) user(uid string) (*oauth20.User, error) {
 	for _, role := range account.Links.Roles {
 		roles = append(roles, role.Name)
 	}
-	return &oauth20.User{UID: uid, Roles: roles}, nil
+	return &oauth2.User{UID: uid, Roles: roles}, nil
 }

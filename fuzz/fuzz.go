@@ -9,7 +9,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/amsterdam/goauth2/server"
+	"github.com/amsterdam/authz/server"
 )
 
 var handler http.Handler
