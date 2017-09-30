@@ -223,7 +223,12 @@ func (h *handler) serveIDPCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	grantedScopes := []string{}
 	if len(state.Scope) > 0 {
-		userScopes := h.authz.ScopeSetFor(user)
+		userScopes, err := h.authz.ScopeSetFor(user)
+		if err != nil {
+			log.Printf("Error getting scopes for user: %s\n", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
 		for _, scope := range state.Scope {
 			if userScopes.ValidScope(scope) {
 				grantedScopes = append(grantedScopes, scope)

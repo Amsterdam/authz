@@ -178,5 +178,5 @@ func (d *datapuntIDP) user(uid string) (*oauth2.User, error) {
 	for _, role := range account.Links.Roles {
 		roles = append(roles, role.Name)
 	}
-	return &oauth2.User{UID: uid, Roles: roles}, nil
+	return &oauth2.User{UID: uid, Data: roles}, nil
 }

@@ -63,12 +63,13 @@ type StateKeeper interface {
 	Restore(key string) (string, error)
 }
 
-// User defines a user
+// User holds user data returned from the IDP. We require a UUID because we
+// encode it in our access token.
 type User struct {
 	// UID is the user identifier.
 	UID string
-	// Roles is a slice of roles associated with this user.
-	Roles []string
+	// Data may be used
+	Data interface{}
 }
 
 // IDP defines an identity provider.
@@ -93,7 +94,7 @@ type ScopeSet interface {
 type Authz interface {
 	ScopeSet
 	// ScopeSetFor() returns the given user's authorized scopeset.
-	ScopeSetFor(u *User) ScopeSet
+	ScopeSetFor(u *User) (ScopeSet, error)
 }
 
 // Client contains all data needed for OAuth 2.0 clients.
@@ -164,8 +165,8 @@ func (m *emptyClientMap) Get(id string) (*Client, error) {
 // emptyScopeSet is the default ScopeSet.
 type emptyScopeSet struct{}
 
-func (p *emptyScopeSet) ScopeSetFor(u *User) ScopeSet {
-	return p
+func (p *emptyScopeSet) ScopeSetFor(u *User) (ScopeSet, error) {
+	return p, nil
 }
 
 func (p *emptyScopeSet) ValidScope(scope ...string) bool {

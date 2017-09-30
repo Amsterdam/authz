@@ -2,6 +2,7 @@ package oauth2
 
 import (
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -229,7 +230,7 @@ func validCallbackURL(t *testing.T, handler http.Handler) string {
 	q.Set("redirect_uri", "http://testclient/")
 	q.Set("response_type", "token")
 	q.Set("state", "state")
-	q.Set("scope", "scope:2 scope:4 scope:6 scope:7")
+	q.Set("scope", "scope:1 scope:2 scope:3")
 	q.Set("idp_id", "testidp")
 	authzReq.URL.RawQuery = q.Encode()
 	w := httptest.NewRecorder()
@@ -259,8 +260,8 @@ func testHandler(tokenSecret string) http.Handler {
 	var options []Option
 	// IDP with two users
 	idp := &testIDP{
-		&User{"user:1", []string{"role:1", "role:2", "role:3"}},
-		&User{"user:2", []string{"role:4", "role:5", "role:6"}},
+		&User{UID: "user:1"},
+		&User{UID: "user:2"},
 	}
 	options = append(options, IDProvider(idp))
 	// Clients
@@ -280,22 +281,10 @@ func testHandler(tokenSecret string) http.Handler {
 	// Access token config
 	options = append(options, AccessTokenConfig([]byte(tokenSecret), 10, "issuer"))
 	// Authorization provider
-	//	scope  1 2 3 4 5 6 7
-	//	role:1 x x
-	//	role:2     x x
-	//	role:3         x x
-	//	role:4 x           x
-	//	role:5   x       x
-	//	role:6     x   x
-	authz := testAuthz{
-		"scope:1": []testRole{testRole("role:1"), testRole("role:4")},
-		"scope:2": []testRole{testRole("role:1"), testRole("role:5")},
-		"scope:3": []testRole{testRole("role:2"), testRole("role:6")},
-		"scope:4": []testRole{testRole("role:2")},
-		"scope:5": []testRole{testRole("role:3"), testRole("role:6")},
-		"scope:6": []testRole{testRole("role:3"), testRole("role:5")},
-		"scope:7": []testRole{testRole("role:4")},
-	}
+	authz := newTestAuthz(map[string][]string{
+		"user:1": []string{"scope:1", "scope:2"},
+		"user:2": []string{"scope:2", "scope:3"},
+	})
 	options = append(options, AuthzProvider(authz))
 
 	handler, _ := Handler("http://test/", options...)
@@ -345,32 +334,39 @@ func (m testClientMap) Get(id string) (*Client, error) {
 ///////
 // A mock authorization provider type
 ///////
-type testAuthz map[string][]testRole
+type testAuthz struct {
+	users  map[string][]string
+	scopes map[string]struct{}
+}
 
-type testRole string
+func newTestAuthz(users map[string][]string) *testAuthz {
+	t := &testAuthz{}
+	t.users = users
+	t.scopes = make(map[string]struct{})
+	for _, scopes := range users {
+		for _, scope := range scopes {
+			t.scopes[scope] = struct{}{}
+		}
+	}
+	return t
+}
 
 func (a testAuthz) ValidScope(scope ...string) bool {
 	for _, s := range scope {
-		if _, ok := a[s]; !ok {
+		if _, ok := a.scopes[s]; !ok {
 			return false
 		}
 	}
 	return true
 }
 
-// Create scopeset for the user's given roles
-func (a testAuthz) ScopeSetFor(u *User) ScopeSet {
-	s := make(testAuthz)
-	for _, r := range u.Roles {
-		for scope, roles := range a {
-			for _, role := range roles {
-				if r == string(role) {
-					s[scope] = nil
-				}
-			}
-		}
+// Create scopeset for the given user
+func (a testAuthz) ScopeSetFor(u *User) (ScopeSet, error) {
+	scopes, ok := a.users[u.UID]
+	if !ok {
+		return nil, fmt.Errorf("User %s not found", u.UID)
 	}
-	return s
+	return newTestAuthz(map[string][]string{u.UID: scopes}), nil
 }
 
 ///////

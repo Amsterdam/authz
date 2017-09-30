@@ -44,7 +44,7 @@ A minimally useful service provides implementations of:
 
 * oauth2.ClientMap: a registry of clients that are known by the service;
 * oauth2.IdP: an identity provider, so users can authenticate;
-* oauth2.Authz: the scopes and roles supported by the service;
+* oauth2.Authz: the scopes supported by the service;
 
 ... and configuration for the accesstokens: the shared secret, the token lifetime and the token issuer identifier.
 

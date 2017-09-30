@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"net/url"
@@ -89,16 +90,20 @@ func (s *datapuntAuthz) ValidScope(scope ...string) bool {
 	return s.allScopes.ValidScope(scope...)
 }
 
-func (s *datapuntAuthz) ScopeSetFor(u *oauth2.User) oauth2.ScopeSet {
+func (s *datapuntAuthz) ScopeSetFor(u *oauth2.User) (oauth2.ScopeSet, error) {
 	scopeSet := make(datapuntScopeSet)
 	s.roleLock.RLock()
 	defer s.roleLock.RUnlock()
-	for _, role := range u.Roles {
+	roles, ok := u.Data.([]string)
+	if !ok {
+		return nil, errors.New("Invalid user data")
+	}
+	for _, role := range roles {
 		for _, scope := range s.roleMap[role] {
 			scopeSet[scope] = struct{}{}
 		}
 	}
-	return scopeSet
+	return scopeSet, nil
 }
 
 func (s *datapuntAuthz) updater() {
