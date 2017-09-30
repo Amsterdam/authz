@@ -57,6 +57,8 @@ func Handler(baseURL string, options ...Option) (http.Handler, error) {
 	if h.stateStore == nil {
 		log.Println("WARN: Using in-memory state storage")
 		h.stateStore = newStateStorage(newStateMap(), 60*time.Second)
+	} else {
+		h.checkStateStore()
 	}
 	// Set default scopeset if no authz provider is given
 	if h.authz == nil {
@@ -78,6 +80,19 @@ func Handler(baseURL string, options ...Option) (http.Handler, error) {
 	mux.HandleFunc("/authorize", h.serveAuthorizationRequest)
 	mux.HandleFunc("/callback", h.serveIDPCallback)
 	return mux, nil
+}
+
+// checkStateStore makes sure a key / value pair is only restored once
+func (h *handler) checkStateStore() {
+	if err := h.stateStore.persist("test", struct{}{}); err != nil {
+		log.Fatalf("State storage not working: %v\n", err)
+	}
+	if err := h.stateStore.restore("test", &struct{}{}); err != nil {
+		log.Fatalf("State storage not working: %v\n", err)
+	}
+	if err := h.stateStore.restore("test", &struct{}{}); err == nil {
+		log.Fatal("State storage not working: doesn't remove key on first restore")
+	}
 }
 
 // serveAuthorizationRequest handles an initial authorization request
