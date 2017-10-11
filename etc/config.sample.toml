@@ -14,7 +14,7 @@ base-url = "http://localhost:8080/"
 # authn-timeout = 600
 ## This is how many second an end-user has to authenticate, ie between starting and finishing the authz request
 
-# trace-header-name = "X-Req-ID"
+# trace-header-name = "X-Unique-ID"
 ## Name of request race header
 
 # log-json-output = false
