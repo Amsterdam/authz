@@ -77,8 +77,8 @@ func Handler(baseURL string, options ...Option) (http.Handler, error) {
 
 	// Create and return handler
 	mux := http.NewServeMux()
-	mux.HandleFunc("/authorize", h.serveAuthorizationRequest)
-	mux.HandleFunc("/callback", h.serveIDPCallback)
+	mux.HandleFunc("/oauth2/authorize", h.serveAuthorizationRequest)
+	mux.HandleFunc("/oauth2/callback", h.serveIDPCallback)
 	return mux, nil
 }
 
@@ -301,6 +301,7 @@ func (h *handler) errorResponse(
 func (h *handler) implicitResponse(
 	w http.ResponseWriter, redirectURI *url.URL, accessToken string,
 	tokenType string, lifetime int64, scope []string, state string) {
+	// sigIdx := strings.LastIndex(accessToken, ".") + 1
 	v := url.Values{}
 	v.Set("access_token", accessToken)
 	v.Set("token_type", tokenType)
