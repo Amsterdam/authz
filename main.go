@@ -5,7 +5,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"log"
 	"net/http"
 	"net/http/pprof"
 	"os"
@@ -15,11 +14,17 @@ import (
 	"time"
 
 	"github.com/amsterdam/authz/oauth2"
+	log "github.com/sirupsen/logrus"
 )
 
 func main() {
 	// Load and check configuration
 	conf := conf()
+
+	// Set log formatter
+	if conf.LogJSON {
+		log.SetFormatter(&log.JSONFormatter{})
+	}
 
 	// Get options
 	opts := options(conf)
@@ -42,15 +47,15 @@ func main() {
 		signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
 		<-signalChan
 		server.Shutdown(context.Background())
-		log.Print("INFO: Signal received, stopping service.")
+		log.Infoln("Signal received, stopping service.")
 	}()
 
 	// Start the OAuth 2.0 server
-	log.Printf("INFO: Starting service on %s.\n", bindAddr)
+	log.Printf("Starting service on %s.\n", bindAddr)
 	if err := server.ListenAndServe(); err != http.ErrServerClosed {
-		log.Printf("WARN: Error shutting down service: %v\n", err)
+		log.Warnln("Error shutting down service: %v\n", err)
 	} else {
-		log.Println("INFO: Server stopped")
+		log.Println("Server stopped")
 	}
 }
 
@@ -68,7 +73,7 @@ func conf() *config {
 	}
 	// Warn if profiler is enabled
 	if conf.PprofEnabled {
-		log.Println("WARN: Profiling should not be enbaled in production!")
+		log.Warnln("Profiling should not be enbaled in production!")
 	}
 	return conf
 }
@@ -114,6 +119,10 @@ func options(conf *config) []oauth2.Option {
 		engine := newRedisStorage(conf.Redis.Address, conf.Redis.Password)
 		timeout := time.Duration(conf.AuthnTimeout) * time.Second
 		options = append(options, oauth2.StateStorage(engine, timeout))
+	}
+	// Trace header
+	if conf.TraceHeader != "" {
+		options = append(options, oauth2.TraceHeader(conf.TraceHeader))
 	}
 	return options
 }

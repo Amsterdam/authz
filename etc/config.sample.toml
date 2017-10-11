@@ -11,6 +11,15 @@ base-url = "http://localhost:8080/"
 # pprof-enabled = true
 ## Enable profiler
 
+# authn-timeout = 600
+## This is how many second an end-user has to authenticate, ie between starting and finishing the authz request
+
+# trace-header-name = "X-Req-ID"
+## Name of request race header
+
+# log-json-output = false
+## Logs are output as JSON for easier parsing
+
 # [accesstoken]
 # secret = "makemehardtoguess"
 ## Secret used to sign (HMAC-SHA256) access and refresh tokens. secret is accesstoken_key_(acc|prod) in ansible-vault
@@ -20,7 +29,7 @@ base-url = "http://localhost:8080/"
 ## Identifier of the token issuer (e.g. URI of authorizatuon endpoint)
 
 
-# [redis]
+[redis]
 ## Connection params for Redis. An empty password won't AUTH.
 # address = ":6379"
 # password = ""

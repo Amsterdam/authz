@@ -2,10 +2,10 @@ package main
 
 import (
 	"errors"
-	"log"
 	"time"
 
 	"github.com/garyburd/redigo/redis"
+	log "github.com/sirupsen/logrus"
 )
 
 type redisStorage struct {

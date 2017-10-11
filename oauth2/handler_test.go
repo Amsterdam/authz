@@ -22,7 +22,7 @@ type testAuthzRequest struct {
 }
 
 func (r *testAuthzRequest) Do(handler http.Handler) {
-	req := httptest.NewRequest("GET", "http://test/authorize", nil)
+	req := httptest.NewRequest("GET", "http://test/oauth2/authorize", nil)
 	q := req.URL.Query()
 	if r.ClientID != "" {
 		q.Set("client_id", r.ClientID)
@@ -173,7 +173,7 @@ func TestAuthorizationHandler(t *testing.T) {
 }
 
 func TestEmptyCallbackRequest(t *testing.T) {
-	r := httptest.NewRequest("GET", "http://testserver/callback", nil)
+	r := httptest.NewRequest("GET", "http://testserver/oauth2/callback", nil)
 	w := httptest.NewRecorder()
 	handler := testHandler("test")
 	handler.ServeHTTP(w, r)
@@ -182,7 +182,7 @@ func TestEmptyCallbackRequest(t *testing.T) {
 }
 
 func TestInvalidCallbackToken(t *testing.T) {
-	r := httptest.NewRequest("GET", "http://testserver/callback?token=test", nil)
+	r := httptest.NewRequest("GET", "http://testserver/oauth2/callback?token=test", nil)
 	w := httptest.NewRecorder()
 	handler := testHandler("test")
 	handler.ServeHTTP(w, r)
@@ -224,7 +224,7 @@ func TestValidCallbackToken(t *testing.T) {
 }
 
 func validCallbackURL(t *testing.T, handler http.Handler) string {
-	authzReq := httptest.NewRequest("GET", "http://test/authorize", nil)
+	authzReq := httptest.NewRequest("GET", "http://test/oauth2/authorize", nil)
 	q := authzReq.URL.Query()
 	q.Set("client_id", "testclient1")
 	q.Set("redirect_uri", "http://testclient/")

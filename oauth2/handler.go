@@ -3,12 +3,13 @@ package oauth2
 import (
 	"encoding/base64"
 	"fmt"
-	"log"
 	"math/rand"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 )
 
 func init() {
@@ -24,6 +25,7 @@ type handler struct {
 	authz          Authz
 	idps           map[string]IDP
 	clientMap      ClientMap
+	traceHeader    string
 }
 
 // Handler returns an http.Handler that handles OAuth 2.0 requests.
@@ -32,7 +34,7 @@ func Handler(baseURL string, options ...Option) (http.Handler, error) {
 	if err != nil {
 		return nil, err
 	}
-	u, err = u.Parse("callback")
+	u, err = u.Parse("oauth2/callback")
 	if err != nil {
 		return nil, err
 	}
@@ -48,31 +50,32 @@ func Handler(baseURL string, options ...Option) (http.Handler, error) {
 	}
 	// Set default accesstoken config if not set
 	if h.accessTokenEnc == nil {
-		log.Println("WARN: accesstoken config missing, using random secret.")
+
+		log.Warnln("accesstoken config missing, using random secret.")
 		secret := make([]byte, 16)
 		rand.Read(secret)
 		h.accessTokenEnc = newAccessTokenEncoder(secret, 36000, "oauth2")
 	}
 	// Set default transient store if none given
 	if h.stateStore == nil {
-		log.Println("WARN: Using in-memory state storage")
+		log.Warnln("Using in-memory state storage")
 		h.stateStore = newStateStorage(newStateMap(), 60*time.Second)
 	} else {
 		h.checkStateStore()
 	}
 	// Set default scopeset if no authz provider is given
 	if h.authz == nil {
-		log.Println("WARN: using empty scope set")
+		log.Warnln("using empty scope set")
 		h.authz = &emptyScopeSet{}
 	}
 	// Set default clientmap if no ClientMap is given
 	if h.clientMap == nil {
-		log.Println("WARN: no clientmap given")
+		log.Warnln("no clientmap given")
 		h.clientMap = &emptyClientMap{}
 	}
 	// Warn if none is set
 	if len(h.idps) == 0 {
-		log.Println("WARN: no IDP registered")
+		log.Warnln("no IDP registered")
 	}
 
 	// Create and return handler
@@ -95,6 +98,14 @@ func (h *handler) checkStateStore() {
 	}
 }
 
+func (h *handler) logger(r *http.Request) *log.Entry {
+	logFields := log.Fields{}
+	if h.traceHeader != "" {
+		logFields["reqID"] = r.Header.Get(h.traceHeader)
+	}
+	return log.WithFields(logFields)
+}
+
 // serveAuthorizationRequest handles an initial authorization request
 func (h *handler) serveAuthorizationRequest(
 	w http.ResponseWriter, r *http.Request,
@@ -103,6 +114,12 @@ func (h *handler) serveAuthorizationRequest(
 		http.Error(w, "Invalid method", http.StatusMethodNotAllowed)
 		return
 	}
+	// Create context logger
+	logFields := log.Fields{
+		"type": "authorization request",
+		"uri":  r.RequestURI,
+	}
+	logger := h.logger(r).WithFields(logFields)
 	// state of authz request
 	authzState := &authorizationState{}
 	var (
@@ -117,10 +134,12 @@ func (h *handler) serveAuthorizationRequest(
 			client = c
 		} else {
 			http.Error(w, "invalid client_id", http.StatusBadRequest)
+			logger.Infoln("invalid client_id")
 			return
 		}
 	} else {
 		http.Error(w, "missing client_id", http.StatusBadRequest)
+		logger.Infoln("missing client_id")
 		return
 	}
 	// redirect_uri
@@ -136,11 +155,12 @@ func (h *handler) serveAuthorizationRequest(
 	}
 	if authzState.RedirectURI == "" {
 		http.Error(w, "missing or invalid redirect_uri", http.StatusBadRequest)
+		logger.Infoln("missing or invalid redirect_uri")
 		return
 	}
 	redirectURI, err := url.Parse(authzState.RedirectURI)
 	if err != nil {
-		log.Printf("ERROR: registered redirect is invalid: %s\n", err)
+		logger.WithError(err).Errorln("Registered redirect is invalid")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -148,6 +168,7 @@ func (h *handler) serveAuthorizationRequest(
 	responseType, ok := query["response_type"]
 	if !ok {
 		h.errorResponse(w, redirectURI, "invalid_request", "response_type missing")
+		logger.Infoln("invalid_request: response_type missing")
 		return
 	}
 	if responseType[0] != client.GrantType {
@@ -155,6 +176,7 @@ func (h *handler) serveAuthorizationRequest(
 			w, redirectURI, "unsupported_response_type",
 			"response_type not supported for client",
 		)
+		logger.Infoln("unsupported_response_type: response_type not supported for client")
 		return
 	}
 	authzState.ResponseType = client.GrantType
@@ -171,6 +193,7 @@ func (h *handler) serveAuthorizationRequest(
 					w, redirectURI, "invalid_scope",
 					fmt.Sprintf("invalid scope: %s", scope),
 				)
+				logger.Infof("invalid scope: %s", scope)
 				return
 			}
 			scopeMap[scope] = struct{}{}
@@ -187,52 +210,63 @@ func (h *handler) serveAuthorizationRequest(
 		authzState.IDPID = idpID[0]
 		if idp, ok = h.idps[authzState.IDPID]; !ok {
 			h.errorResponse(w, redirectURI, "invalid_request", "unknown idp_id")
+			logger.Infoln("invalid_request: unknown idp_id")
 			return
 		}
 	} else {
 		h.errorResponse(w, redirectURI, "invalid_request", "idp_id missing")
+		logger.Infoln("invalid_request: idp_id missing")
 		return
 	}
 	// Create authn session
 	authnRedirect, err := h.authnSession(idp, authzState)
 	if err != nil {
 		h.errorResponse(w, redirectURI, "server_error", "internal server error")
+		logger.WithError(err).Errorln("Couldn't save session")
 		return
 	}
 
 	w.Header().Set("Location", authnRedirect)
 	w.WriteHeader(http.StatusSeeOther)
+	logger.Infoln("Redirected to IdP")
 }
 
 // serveIDPCallback handles IDP callbacks
 func (h *handler) serveIDPCallback(w http.ResponseWriter, r *http.Request) {
+	// Create context logger
+	logFields := log.Fields{
+		"type": "idp callback request",
+	}
+	logger := h.logger(r).WithFields(logFields)
+	// Handle request
 	q := r.URL.Query()
 	token, ok := q["token"]
 	if !ok {
 		http.Error(w, "token parameter missing", http.StatusBadRequest)
+		logger.Infoln("token parameter missing")
 		return
 	}
 	var state authorizationState
 	if err := h.stateStore.restore(token[0], &state); err != nil {
-		log.Printf("Error restoring state token: %s\n", err)
+		logger.WithError(err).Errorln("Error restoring state")
 		http.Error(w, "invalid state token", http.StatusBadRequest)
 		return
 	}
 	redirectURI, err := url.Parse(state.RedirectURI)
 	if err != nil {
-		log.Printf("Error reconstructing redirect_uri from unmarshalled state: %s\n", err)
+		logger.WithError(err).Errorf("Error reconstructing redirect_uri from unmarshalled state: %v\n", state.RedirectURI)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	idp, ok := h.idps[state.IDPID]
 	if !ok {
-		log.Printf("Error finding IDP: %s\n", state.IDPID)
+		logger.Errorf("Invalid IDP (authzrequest should have failed): %s\n", state.IDPID)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	user, err := idp.User(r, state.IDPState)
 	if err != nil {
-		log.Printf("Error authenticating user: %s\n", err)
+		logger.WithError(err).Infoln("Error authenticating user")
 		h.errorResponse(w, redirectURI, "access_denied", "couldn't authenticate user")
 		return
 	}
@@ -240,7 +274,7 @@ func (h *handler) serveIDPCallback(w http.ResponseWriter, r *http.Request) {
 	if len(state.Scope) > 0 {
 		userScopes, err := h.authz.ScopeSetFor(user)
 		if err != nil {
-			log.Printf("Error getting scopes for user: %s\n", err)
+			logger.WithError(err).Errorln("Error getting scopes for user")
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -252,7 +286,7 @@ func (h *handler) serveIDPCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	accessToken, err := h.accessTokenEnc.Encode(user.UID, grantedScopes)
 	if err != nil {
-		log.Println(err)
+		logger.WithError(err).Errorln("Error encoding accesstoken")
 		h.errorResponse(w, redirectURI, "server_error", "internal server error")
 		return
 	}
@@ -260,6 +294,12 @@ func (h *handler) serveIDPCallback(w http.ResponseWriter, r *http.Request) {
 		w, redirectURI, accessToken, "bearer", h.accessTokenEnc.Lifetime(),
 		grantedScopes, state.State,
 	)
+	// Auditlog
+	sigIdx := strings.LastIndex(accessToken, ".") + 1
+	logger.WithFields(log.Fields{
+		"sub":            user.UID,
+		"tokensignature": accessToken[sigIdx:],
+	}).Info("User authorized")
 }
 
 // authnSession saves the current state of the authorization request and
@@ -301,7 +341,6 @@ func (h *handler) errorResponse(
 func (h *handler) implicitResponse(
 	w http.ResponseWriter, redirectURI *url.URL, accessToken string,
 	tokenType string, lifetime int64, scope []string, state string) {
-	// sigIdx := strings.LastIndex(accessToken, ".") + 1
 	v := url.Values{}
 	v.Set("access_token", accessToken)
 	v.Set("token_type", tokenType)

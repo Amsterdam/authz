@@ -3,13 +3,13 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	"log"
 	"net/http"
 	"net/url"
 	"sync"
 	"time"
 
 	"github.com/amsterdam/authz/oauth2"
+	log "github.com/sirupsen/logrus"
 )
 
 type authzHalObject struct {
@@ -80,7 +80,7 @@ func newDatapuntAuthz(conf *authzConfig) (*datapuntAuthz, error) {
 		return nil, err
 	}
 	go provider.updater()
-	log.Println("INFO: Created datapunt scopeset")
+	log.Infoln("Created datapunt scopeset")
 	return provider, nil
 }
 
@@ -109,13 +109,13 @@ func (s *datapuntAuthz) ScopeSetFor(u *oauth2.User) (oauth2.ScopeSet, error) {
 func (s *datapuntAuthz) updater() {
 	for range time.Tick(time.Duration(s.updateInterval) * time.Second) {
 		if err := s.runUpdate(); err != nil {
-			log.Printf("ERROR: while updating scope map: %s\n", err)
+			log.WithError(err).Errorln("Couldn't update scope map")
 		}
 	}
 }
 
 func (s *datapuntAuthz) runUpdate() error {
-	log.Println("INFO: Updating Datapunt authorization")
+	log.Infoln("Updating Datapunt authorization")
 	req, err := http.NewRequest("GET", s.setURL, nil)
 	if err != nil {
 		return err
@@ -129,11 +129,11 @@ func (s *datapuntAuthz) runUpdate() error {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == 304 {
-		log.Println("INFO: Datapunt authorization has not changed")
+		log.Infoln("Datapunt authorization has not changed")
 		return nil
 	}
 	if resp.StatusCode != 200 {
-		log.Printf("WARN: unexpected response from Datapunt authz: %s\n", resp.Status)
+		log.Warnf("unexpected response from Datapunt authz: %s\n", resp.Status)
 		return nil
 	}
 	var (
@@ -161,6 +161,6 @@ func (s *datapuntAuthz) runUpdate() error {
 	s.roleMap = roleMap
 	s.roleLock.Unlock()
 	s.etag = resp.Header.Get("ETag")
-	log.Println("INFO: Updated Datapunt scope set")
+	log.Infoln("Updated Datapunt scope set")
 	return nil
 }

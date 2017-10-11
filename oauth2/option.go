@@ -12,6 +12,15 @@ import (
 // Option is a handler setting that can be passed to Handler().
 type Option func(*handler) error
 
+// TraceHeader is an option that sets the name of the header that contains a
+// request identifier. If present, logs will contain a field reqID.
+func TraceHeader(headerName string) Option {
+	return func(s *handler) error {
+		s.traceHeader = headerName
+		return nil
+	}
+}
+
 // StateStorage is an option that sets the transient storage for the handler
 // instance.
 func StateStorage(engine StateKeeper, lifetime time.Duration) Option {

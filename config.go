@@ -22,6 +22,8 @@ type config struct {
 	BaseURL      string            `toml:"base-url"`
 	PprofEnabled bool              `toml:"pprof-enabled"`
 	AuthnTimeout int               `toml:"authn-timeout"`
+	TraceHeader  string            `toml:"trace-header-name"`
+	LogJSON      bool              `toml:"log-json-output"`
 	IDP          idpConfig         `toml:"idp"`
 	Clients      clientMap         `toml:"clients"`
 	Authz        authzConfig       `toml:"authorization"`
