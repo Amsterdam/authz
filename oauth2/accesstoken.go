@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -50,8 +49,11 @@ func (enc *accessTokenEncoder) Encode(subject string, scopes []string) (string, 
 	}
 	// Temporary for backwards compatibility
 	level := 1
-	if strings.HasSuffix(subject, "@amsterdam.nl") {
-		level = 3
+	for _, s := range scopes {
+		if s == "BRK/RSN" {
+			level = 3
+			break
+		}
 	}
 	// End compat
 	now := time.Now().Unix()
