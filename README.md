@@ -33,6 +33,5 @@ $ mkdir -p $GOPATH/src/github.com/amsterdam/authz
 $ cd $GOPATH/src/github.com/amsterdam/authz
 $ git clone https://github.com/amsterdam/authz.git
 $ go get github.com/sparrc/gdm
-$ go get github.com/sirupsen/logrus
 $ gdm restore
 ```
