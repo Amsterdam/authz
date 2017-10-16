@@ -299,6 +299,8 @@ func (h *handler) serveIDPCallback(w http.ResponseWriter, r *http.Request) {
 	logger.WithFields(log.Fields{
 		"sub":            user.UID,
 		"tokensignature": accessToken[sigIdx:],
+		"scopes": grantedScopes,
+		"expires_in": h.accessTokenEnc.Lifetime(),
 	}).Info("User authorized")
 }
 
