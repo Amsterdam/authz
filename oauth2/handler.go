@@ -1,9 +1,9 @@
 package oauth2
 
 import (
+	"crypto/rand"
 	"encoding/base64"
 	"fmt"
-	"math/rand"
 	"net/http"
 	"net/url"
 	"strings"
@@ -11,10 +11,6 @@ import (
 
 	log "github.com/sirupsen/logrus"
 )
-
-func init() {
-	rand.Seed(time.Now().UTC().UnixNano())
-}
 
 type handler struct {
 	callbackURL url.URL
