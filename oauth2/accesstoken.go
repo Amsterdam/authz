@@ -24,8 +24,6 @@ type accessTokenJWTPayload struct {
 	ExpiresAt int64    `json:"exp"`
 	JWTId     string   `json:"jti"`
 	Scopes    []string `json:"scopes"`
-	// Temporary for backwards compatibility: level
-	Authz int `json:"authz"`
 }
 
 type accessTokenEncoder struct {
@@ -47,14 +45,6 @@ func (enc *accessTokenEncoder) Encode(subject string, scopes []string) (string, 
 	if err != nil {
 		return "", err
 	}
-	// Temporary for backwards compatibility
-	level := 1
-	for _, s := range scopes {
-		if s == "BRK/RSN" {
-			level = 3
-			break
-		}
-	}
 	// End compat
 	now := time.Now().Unix()
 	header := &accessTokenJWTHeader{
@@ -69,7 +59,6 @@ func (enc *accessTokenEncoder) Encode(subject string, scopes []string) (string, 
 		ExpiresAt: now + enc.lifetime,
 		JWTId:     jti.String(),
 		Scopes:    scopes,
-		Authz:     level,
 	}
 	return enc.jwt(header, payload)
 }
