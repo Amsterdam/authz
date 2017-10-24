@@ -1,6 +1,6 @@
 #!groovy
 
-String IMAGE = "build.datapunt.amsterdam.nl:5000/datapunt/authz:${env.BUILD_NUMBER}"
+String IMAGE = "authz:${env.BUILD_NUMBER}"
 String BRANCH = "${env.BRANCH_NAME}"
 String PLAYBOOK = "deploy-authz.yml"
 
