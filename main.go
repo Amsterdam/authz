@@ -127,7 +127,8 @@ func options(conf *config) []oauth2.Option {
 	return options
 }
 
-// Handler is a wrapper that adds middleware for profiling and ping
+// Handler is a wrapper that adds middleware for profiling and ping, and adds
+// common headers to all responses.
 type Handler struct {
 	http.Handler
 	Config *config
@@ -139,6 +140,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	} else if r.URL.Path == "/ping" {
 		h.servePing(w, r)
 	} else {
+		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 		h.Handler.ServeHTTP(w, r)
 	}
 }
