@@ -90,7 +90,7 @@ func (d *datapuntIDP) AuthnRedirect(callbackURL *url.URL) (*url.URL, []byte, err
 // User returns a User and the original opaque token.
 func (d *datapuntIDP) User(r *http.Request, state []byte) (*oauth2.User, error) {
 	q := r.URL.Query()
-	if token, ok := q["aselect_credentials"]; ok {
+	if token, ok := q["credentials"]; ok {
 		tokenPayload, err := d.jwtPayload(token[0])
 		if err != nil {
 			return nil, err
