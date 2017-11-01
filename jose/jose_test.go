@@ -14,9 +14,9 @@ type TestToken struct {
 func TestJWKHMAC(t *testing.T) {
 	var jwkSet = []byte(`
 		{ "keys": [
-			{ "kty": "oct", "use": "sig", "key_ops": ["sign", "verify"], "kid": "1", "alg": "HS256", "k": "iamasymmetrickey" },
-			{ "kty": "oct", "use": "sig", "key_ops": ["sign", "verify"], "kid": "2", "alg": "HS384", "k": "iamanothersymmetrickey" },
-			{ "kty": "oct", "use": "sig", "key_ops": ["sign", "verify"], "kid": "3", "alg": "HS512", "k": "iamyetanothersymmetrickey" }
+			{ "kty": "oct", "use": "sig", "key_ops": ["sign", "verify"], "kid": "1", "alg": "HS256", "k": "PTTjIY84aLtaZCxLTrG_d8I0G6YKCV7lg8M4xkKfwQ4=" },
+			{ "kty": "oct", "use": "sig", "key_ops": ["sign", "verify"], "kid": "2", "alg": "HS384", "k": "PTTjIY84aLtaZCxLTrG_d8I0G6YKCV7lg8M4xkKfwQ4=" },
+			{ "kty": "oct", "use": "sig", "key_ops": ["sign", "verify"], "kid": "3", "alg": "HS512", "k": "PTTjIY84aLtaZCxLTrG_d8I0G6YKCV7lg8M4xkKfwQ4=" }
 		]}
 	`)
 	jwks, err := LoadJWKSet(jwkSet)

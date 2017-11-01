@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/sha512"
+	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -344,6 +345,7 @@ type jwkSymmetric struct {
 	Alg      string `json:"alg"`
 	K        string `json:"k"`
 	HashFunc func() hash.Hash
+	Key      []byte
 }
 
 func unmarshalJWKSymmetric(data []byte) (*jwkSymmetric, error) {
@@ -361,6 +363,11 @@ func unmarshalJWKSymmetric(data []byte) (*jwkSymmetric, error) {
 	default:
 		return nil, fmt.Errorf("Invalid Alg for symmetric key: %s", jwk.Alg)
 	}
+	k, err := base64.URLEncoding.DecodeString(jwk.K)
+	if err != nil {
+		return nil, err
+	}
+	jwk.Key = k
 	return &jwk, nil
 }
 
@@ -369,7 +376,7 @@ func (j *jwkSymmetric) Algorithm() string {
 }
 
 func (j *jwkSymmetric) Sign(msg []byte) ([]byte, error) {
-	mac := hmac.New(j.HashFunc, []byte(j.K))
+	mac := hmac.New(j.HashFunc, j.Key)
 	mac.Write(msg)
 	return mac.Sum(nil), nil
 }
@@ -377,7 +384,7 @@ func (j *jwkSymmetric) Sign(msg []byte) ([]byte, error) {
 func (j *jwkSymmetric) Verify(b64header, b64payload, b64digest string) bool {
 	digest, _ := j.Sign([]byte(fmt.Sprintf("%s.%s", b64header, b64payload)))
 	computedB64digest := base64.RawURLEncoding.EncodeToString(digest)
-	if b64digest == computedB64digest {
+	if subtle.ConstantTimeCompare([]byte(computedB64digest), []byte(b64digest)) == 1 {
 		return true
 	}
 	return false
