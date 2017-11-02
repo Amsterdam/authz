@@ -124,7 +124,7 @@ func NewJWKHMAC(alg string) (*JWKHMAC, error) {
 	key := &JWKHMAC{}
 	key.KeyType = "oct"
 	key.KeyID = kid.String()
-	key.Algorithm = "HMAC"
+	key.Algorithm = alg
 	key.K = base64.URLEncoding.EncodeToString(secret)
 	key.KeyOps = []string{"verify", "sign"}
 
