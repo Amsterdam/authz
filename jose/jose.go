@@ -112,6 +112,34 @@ func (s *JWKSet) KeyIDs() []string {
 	return s.kids
 }
 
+// VerifiersJSON returns the JSON encoded JWK set containing all asymmetric verifiers.
+func (s *JWKSet) VerifiersJSON() []byte {
+	var keys []json.RawMessage
+	for _, k := range s.verifiers {
+		var key interface{}
+		switch k.Algorithm()[:2] {
+		case "ES":
+			eskey, ok := k.(*jwkECPub)
+			if !ok {
+				panic("Inconsistent state, ES algorithm cannot be cast to jwkECPub")
+			}
+			key = eskey
+		default:
+			continue
+		}
+		encoded, err := json.Marshal(key)
+		if err != nil {
+			panic(err)
+		}
+		keys = append(keys, encoded)
+	}
+	encoded, err := json.Marshal(jwks{Keys: keys})
+	if err != nil {
+		panic(err)
+	}
+	return encoded
+}
+
 // Encode creates a JWT from the given data, signed using the key at the given key id.
 func (s *JWKSet) Encode(kid string, v interface{}) (string, error) {
 	signer, ok := s.signers[kid]
@@ -184,14 +212,14 @@ type jwkData struct {
 // jwkECPub is a JWK holding a public ECDSA key (RFC 7518 section 6.2.1)
 type jwkECPub struct {
 	jwkData
-	Curve     string `json:"crv"`
-	X         string `json:"x"`
-	Y         string `json:"y"`
-	PublicKey *ecdsa.PublicKey
-	HashFunc  func() hash.Hash
-	CurveFunc func() elliptic.Curve
-	SigLength int
-	AlgName   string
+	Curve     string                `json:"crv"`
+	X         string                `json:"x"`
+	Y         string                `json:"y"`
+	PublicKey *ecdsa.PublicKey      `json:"-"`
+	HashFunc  func() hash.Hash      `json:"-"`
+	CurveFunc func() elliptic.Curve `json:"-"`
+	SigLength int                   `json:"-"`
+	AlgName   string                `json:"-"`
 }
 
 func unmarshalJWKECPub(data []byte) (*jwkECPub, error) {
@@ -280,8 +308,8 @@ func (j *jwkECPub) publicKey() (*ecdsa.PublicKey, error) {
 // jwkECPriv is a JWK holding a private (and public) ECDSA key (RFC 7518 section 6.2.2)
 type jwkECPriv struct {
 	jwkECPub
-	D          string `json:"d"`
-	PrivateKey *ecdsa.PrivateKey
+	D          string            `json:"d"`
+	PrivateKey *ecdsa.PrivateKey `json:"-"`
 }
 
 func unmarshalJWKECPriv(data []byte) (*jwkECPriv, error) {
@@ -342,10 +370,10 @@ func (j *jwkECPriv) privateKey() (*ecdsa.PrivateKey, error) {
 // jwkSymmetric holds a symmetric JWK (RFC 7518 section 6.4)
 type jwkSymmetric struct {
 	jwkData
-	Alg      string `json:"alg"`
-	K        string `json:"k"`
-	HashFunc func() hash.Hash
-	Key      []byte
+	Alg      string           `json:"alg"`
+	K        string           `json:"k"`
+	HashFunc func() hash.Hash `json:"-"`
+	Key      []byte           `json:"-"`
 }
 
 func unmarshalJWKSymmetric(data []byte) (*jwkSymmetric, error) {
