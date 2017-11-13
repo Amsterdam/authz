@@ -153,7 +153,7 @@ func readJWKSFromStdIn() *JWKSet {
 func main() {
 	// Flags
 	create := flag.Bool("create", false, "Create a new JWKS instead of reading an existing one from stdin")
-	alg := flag.String("alg", "", "Algorithm, one of HS256, HS384, HS512, EC256, EC384 or EC512")
+	alg := flag.String("alg", "", "Algorithm, one of HS256, HS384, HS512, ES256, ES384 or ES512")
 	flag.Parse()
 
 	// Grab the JWKS from stdin or create a new one
