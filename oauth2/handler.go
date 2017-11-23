@@ -234,6 +234,10 @@ func (h *handler) serveAuthorizationRequest(
 
 // serveIDPCallback handles IDP callbacks
 func (h *handler) serveIDPCallback(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		http.Error(w, "Invalid method", http.StatusMethodNotAllowed)
+		return
+	}
 	// Create context logger
 	logFields := log.Fields{
 		"type": "idp callback request",
