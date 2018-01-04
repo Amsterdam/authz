@@ -9,3 +9,6 @@ config.toml
 
 # vscode
 .vscode
+
+# vendor dirs
+vendor
