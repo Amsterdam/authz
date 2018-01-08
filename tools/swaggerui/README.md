@@ -114,3 +114,8 @@ Now run the Swagger UI and point it to your OpenAPI definition:
 $ docker-compose up -d swaggerui
 $ open localhost:8686/swagger-ui/?url=[URL_to_openapi_spec]
 ```
+
+## Troubleshooting
+
+* If Swagger UI is running and your OpenAPI spec isn't loading, check your browser's console for error information.
+* One reason for your OpenAPI spec to not load is because your service doensn't allow cross-origin requests. Make sure to send `Access-Control-Allow-Origin` and set it to a value that permits requests from `localhost:8686`.
