@@ -70,7 +70,7 @@ DATAPUNT_AUTHZ = {
 }
 ```
 
-### 3. Include security definition in you OpenAPI definition
+### 3. Include OAuth2 security definition in your OpenAPI spec
 
 For OpenAPI v3:
 
