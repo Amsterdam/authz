@@ -1,5 +1,0 @@
-The Swagger-ui tooling allows locally developed services using OAuth 2.0 scopes to be browsed using Swagger-ui. It exposes the following namespace:
-
-**/swagger-ui/**: Swagger-ui
-**/oauth2/authorize**: OAuth 2.0 authorization endpoint (implicit flow only)
-**/oauth2/jwks**: The public keys that can be used to verify the JWT accesstokens
