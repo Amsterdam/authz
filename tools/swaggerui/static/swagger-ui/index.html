@@ -71,11 +71,9 @@
 <script src="./swagger-ui-standalone-preset.js"> </script>
 <script>
 window.onload = function() {
-
   var scheme = window.location.protocol + '//'
   var host = window.location.hostname
   var port = (window.location.port ? ':' + window.location.port : '')
-
   // Build a system
   const ui = SwaggerUIBundle({
     oauth2RedirectUrl: scheme + host + port + "/swagger-ui/oauth2-redirect.html",
