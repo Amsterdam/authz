@@ -138,6 +138,6 @@ func (g *googleIDP) AuthnCallback(r *http.Request) (string, *oauth2.User, error)
 		fmt.Println(err)
 		return stateData.Get("ref"), nil, nil
 	}
-	return stateData.Get("ref"), &oauth2.User{UID: idToken.Subject, Data: idToken}, nil
+	return stateData.Get("ref"), &oauth2.User{UID: idToken.Subject, Data: []string{"CDE_PLUS"}}, nil
 
 }
