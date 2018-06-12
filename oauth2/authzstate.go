@@ -13,7 +13,6 @@ type authorizationState struct {
 	Scope        []string
 	State        string
 	IDPID        string
-	IDPState     []byte
 }
 
 type stateStorage struct {

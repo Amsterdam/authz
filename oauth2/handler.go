@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"path"
 	"strings"
 	"time"
 
@@ -32,7 +33,7 @@ func Handler(baseURL string, jwks string, options ...Option) (http.Handler, erro
 	if err != nil {
 		return nil, err
 	}
-	u, err = u.Parse("oauth2/callback")
+	u, err = u.Parse("oauth2/callback/")
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +83,11 @@ func Handler(baseURL string, jwks string, options ...Option) (http.Handler, erro
 	// Create and return handler
 	mux := http.NewServeMux()
 	mux.HandleFunc("/oauth2/authorize", h.serveAuthorizationRequest)
-	mux.HandleFunc("/oauth2/callback", h.serveIDPCallback)
+	// Register one callback per idp so we can route correctly
+	for idpID := range h.idps {
+		path := fmt.Sprintf("/oauth2/callback/%s", idpID)
+		mux.HandleFunc(path, h.serveIDPCallback)
+	}
 	return mux, nil
 }
 
@@ -243,16 +248,26 @@ func (h *handler) serveIDPCallback(w http.ResponseWriter, r *http.Request) {
 		"type": "idp callback request",
 	}
 	logger := h.logger(r).WithFields(logFields)
-	// Handle request
-	q := r.URL.Query()
-	token, ok := q["token"]
+	// Figure out which idp to use
+	idpID := path.Base(r.URL.Path)
+	idp, ok := h.idps[idpID]
 	if !ok {
-		http.Error(w, "token parameter missing", http.StatusBadRequest)
-		logger.Infoln("token parameter missing")
+		http.Error(w, fmt.Sprintf("Unknown IdP: %s\n", idpID), http.StatusBadRequest)
+		return
+	}
+	// Let IdP handle request
+	authzRef, user, err := idp.AuthnCallback(r)
+	if err != nil {
+		logger.WithError(err).Errorf("Error handling IdP callback: %v\n", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	if authzRef == "" {
+		http.Error(w, "Can't relate callback to authorization request", http.StatusBadRequest)
 		return
 	}
 	var state authorizationState
-	if err := h.stateStore.restore(token[0], &state); err != nil {
+	if err := h.stateStore.restore(string(authzRef), &state); err != nil {
 		logger.WithError(err).Errorln("Error restoring state")
 		http.Error(w, "invalid state token", http.StatusBadRequest)
 		return
@@ -263,14 +278,7 @@ func (h *handler) serveIDPCallback(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	idp, ok := h.idps[state.IDPID]
-	if !ok {
-		logger.Errorf("Invalid IDP (authzrequest should have failed): %s\n", state.IDPID)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	user, err := idp.User(r, state.IDPState)
-	if err != nil {
+	if user == nil {
 		logger.WithError(err).Infoln("Error authenticating user")
 		h.errorResponse(w, redirectURI, "access_denied", "couldn't authenticate user")
 		return
@@ -316,17 +324,15 @@ func (h *handler) authnSession(idp IDP, state *authorizationState) (string, erro
 	token := make([]byte, 16)
 	rand.Read(token)
 	b64Token := base64.RawURLEncoding.EncodeToString(token)
-	// Add token to callback URL
-	query := url.Values{}
-	query.Set("token", b64Token)
-	callbackURL := h.callbackURL
-	callbackURL.RawQuery = query.Encode()
-	// Het authentication redirect
-	redir, idpState, err := idp.AuthnRedirect(&callbackURL)
+	// Get authentication redirect
+	callbackURL, err := h.callbackURL.Parse(idp.ID())
 	if err != nil {
 		return "", err
 	}
-	state.IDPState = idpState
+	redir, err := idp.AuthnRedirect(callbackURL, b64Token)
+	if err != nil {
+		return "", err
+	}
 	if err := h.stateStore.persist(b64Token, state); err != nil {
 		return "", err
 	}

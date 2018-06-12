@@ -24,7 +24,8 @@ type config struct {
 	AuthnTimeout int               `toml:"authn-timeout"`
 	TraceHeader  string            `toml:"trace-header-name"`
 	LogJSON      bool              `toml:"log-json-output"`
-	IDP          idpConfig         `toml:"idp"`
+	DatapuntIDP  DatapuntIDPConfig `toml:"idp-datapunt"`
+	GoogleIDP    GoogleIDPConfig   `toml:"idp-google"`
 	Clients      clientMap         `toml:"clients"`
 	Authz        authzConfig       `toml:"authorization"`
 	Redis        redisConfig       `toml:"redis"`
@@ -51,12 +52,18 @@ type authzConfig struct {
 	UpdateInterval int    `toml:"update-interval"`
 }
 
-// Datapunt authentication config
-type idpConfig struct {
+// DatapuntIDPConfig contains DP IdP config
+type DatapuntIDPConfig struct {
 	BaseURL     string `toml:"base-url"`
 	AccountsURL string `toml:"accounts-url"`
 	APIKey      string `toml:"api-key"`
 	Secret      string `toml:"secret"`
+}
+
+// GoogleIDPConfig contains Google IdP config
+type GoogleIDPConfig struct {
+	ClientID     string `toml:"client-id"`
+	ClientSecret string `toml:"client-secret"`
 }
 
 // Client configuration

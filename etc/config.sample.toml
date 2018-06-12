@@ -23,19 +23,16 @@ base-url = "http://localhost:8080/"
 [accesstoken]
 jwk-set = """
 { "keys": [
-  { "kty": "oct",
-    "key_ops": ["sign"],
-    "alg": "HS256",
-    "kid": "1",
-    "k": "makemehardtoguess"
-  },
-  { "kty": "EC",
-    "key_ops": ["sign"],
+  {
+    "kty": "EC",
+    "key_ops": [
+      "sign"
+    ],
     "kid": "2",
     "crv": "P-256",
-    "x": "g9IULlEyYGp3i2IZ1STiuDQ0rcrt3r3o-01f7_wOM_o=",
-    "y": "8QfpzSUvN4UAI4PliUXpeOv8RwLU8P8qLXqhTCc4w1M=",
-    "d": "dIz2ALAunAxB5ajQVx3fAdbttNX4WazEyvXLyi6BFBc="
+    "x": "6r8PYwqfZbq_QzoMA4tzJJsYUIIXdeyPA27qTgEJCDw=",
+    "y": "Cf2clfAfFuuCB06NMfIat9ultkMyrMQO9Hd2H7O9ZVE=",
+    "d": "N1vu0UQUp0vLfaNeM0EDbl4quvvL6m_ltjoAXXzkI3U="
   }
 ]}
 """
@@ -54,7 +51,7 @@ jwk-set = """
 # password = ""
 
 
-[idp]
+[idp-datapunt]
 ## IdP configuration
 base-url = "https://acc.api.data.amsterdam.nl/auth/idp/login"
 api-key = "apikey"

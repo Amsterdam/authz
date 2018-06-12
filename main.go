@@ -84,10 +84,13 @@ func conf() *config {
 
 func options(conf *config) []oauth2.Option {
 	var options []oauth2.Option
-	// IdP
-	if (conf.IDP != idpConfig{}) {
+	// Datapunt IdP
+	if (conf.DatapuntIDP != DatapuntIDPConfig{}) {
 		if idp, err := newDatapuntIDP(
-			conf.IDP.BaseURL, conf.IDP.AccountsURL, []byte(conf.IDP.Secret), conf.IDP.APIKey,
+			conf.DatapuntIDP.BaseURL,
+			conf.DatapuntIDP.AccountsURL,
+			[]byte(conf.DatapuntIDP.Secret),
+			conf.DatapuntIDP.APIKey,
 		); err != nil {
 			log.Fatal(err)
 		} else {
@@ -95,6 +98,13 @@ func options(conf *config) []oauth2.Option {
 		}
 	} else {
 		log.Fatal("Must configure an IdP")
+	}
+	// Google OIC IdP
+	if (conf.GoogleIDP != GoogleIDPConfig{}) {
+		idp := newGoogleIDP(
+			conf.GoogleIDP.ClientID, conf.GoogleIDP.ClientSecret,
+		)
+		options = append(options, oauth2.IDProvider(idp))
 	}
 	// Clients
 	if len(conf.Clients) == 0 {

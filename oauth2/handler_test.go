@@ -173,21 +173,21 @@ func TestAuthorizationHandler(t *testing.T) {
 }
 
 func TestEmptyCallbackRequest(t *testing.T) {
-	r := httptest.NewRequest("GET", "http://testserver/oauth2/callback", nil)
+	r := httptest.NewRequest("GET", "http://testserver/oauth2/callback/testidp", nil)
 	w := httptest.NewRecorder()
 	handler := testHandler("test")
 	handler.ServeHTTP(w, r)
 	resp := w.Result()
-	expectBadRequest("empty callback", t, resp, "token parameter missing\n")
+	expectBadRequest("empty callback", t, resp, "Can't relate callback to authorization request\n")
 }
 
 func TestInvalidCallbackToken(t *testing.T) {
-	r := httptest.NewRequest("GET", "http://testserver/oauth2/callback?token=test", nil)
+	r := httptest.NewRequest("GET", "http://testserver/oauth2/callback/testidp?token=test", nil)
 	w := httptest.NewRecorder()
 	handler := testHandler("test")
 	handler.ServeHTTP(w, r)
 	resp := w.Result()
-	expectBadRequest("invalid callback token", t, resp, "invalid state token\n")
+	expectBadRequest("invalid callback token", t, resp, "Can't relate callback to authorization request\n")
 }
 
 func TestValidCallbackToken(t *testing.T) {
@@ -244,7 +244,7 @@ func validCallbackURL(t *testing.T, handler http.Handler) string {
 	u, err := url.Parse(location)
 	if err != nil {
 		t.Fatalf("creating callback url: Bad location: %v", err)
-	} else if !strings.HasSuffix(u.Path, "/callback") {
+	} else if !strings.HasSuffix(u.Path, "/callback/testidp") {
 		t.Fatalf(
 			"creating callback url: Expected to be redirected back to authz callback, got %s instead",
 			location,
@@ -302,21 +302,28 @@ func (a testIDP) ID() string {
 	return "testidp"
 }
 
-func (a testIDP) AuthnRedirect(callbackURL *url.URL) (*url.URL, []byte, error) {
-	return callbackURL, nil, nil
+func (a testIDP) AuthnRedirect(callbackURL *url.URL, authzRef string) (*url.URL, error) {
+	query := callbackURL.Query()
+	query.Set("ref", authzRef)
+	callbackURL.RawQuery = query.Encode()
+	return callbackURL, nil
 }
 
-func (a testIDP) User(r *http.Request, state []byte) (*User, error) {
+func (a testIDP) AuthnCallback(r *http.Request) (string, *User, error) {
+	authzRef, ok := r.URL.Query()["ref"]
+	if !ok {
+		return "", nil, nil
+	}
 	uid, ok := r.URL.Query()["uid"]
 	if !ok {
-		return nil, errors.New("Unknown uid")
+		return authzRef[0], nil, nil
 	}
 	for _, u := range a {
 		if u.UID == uid[0] {
-			return u, nil
+			return authzRef[0], u, nil
 		}
 	}
-	return nil, errors.New("Invalid state")
+	return "", nil, errors.New("Unknown uid")
 }
 
 ///////

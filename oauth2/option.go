@@ -101,12 +101,13 @@ type User struct {
 type IDP interface {
 	// ID returns the IDP's identifier
 	ID() string
-	// AuthnRedirect(...) returns an authentication URL and optional serialized
-	// state.
-	AuthnRedirect(callbackURL *url.URL) (*url.URL, []byte, error)
-	// User receives the IDP's callback request and returns a User object or
-	// an error.
-	User(r *http.Request, state []byte) (*User, error)
+	// AuthnRedirect is responsible for generating a URL that we can redirect
+	// the user to for authentication.
+	AuthnRedirect(callbackURL *url.URL, authzRef string) (*url.URL, error)
+	// AuthnCallback receives the IDP's callback request. It returns the
+	// authzRef as given to the corresponding call to AuthnRedirect, and the
+	// logged-in User or nil if authentication failed.
+	AuthnCallback(r *http.Request) (string, *User, error)
 }
 
 // ScopeSet defines a set of scopes.

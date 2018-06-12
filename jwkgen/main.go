@@ -180,10 +180,10 @@ func main() {
 			}
 			jwks.Keys = append(jwks.Keys, key)
 		default:
-			log.Fatalf("Unsupported algorithm: %s", alg)
+			log.Fatalf("Unsupported algorithm: %s", *alg)
 		}
 	} else if *alg != "" {
-		log.Fatalf("Unsupported algorithm: %s", alg)
+		log.Fatalf("Unsupported algorithm: %s", *alg)
 	}
 
 	jwksJSON, err := json.MarshalIndent(jwks, "", "  ")

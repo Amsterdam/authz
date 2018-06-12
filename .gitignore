@@ -12,3 +12,6 @@ config.toml
 
 # vendor dirs
 vendor
+
+# debug stuff
+debug

@@ -70,34 +70,43 @@ func (d *datapuntIDP) ID() string {
 }
 
 // AuthnRedirect generates the Authentication redirect.
-func (d *datapuntIDP) AuthnRedirect(callbackURL *url.URL) (*url.URL, []byte, error) {
+func (d *datapuntIDP) AuthnRedirect(callbackURL *url.URL, authzRef string) (*url.URL, error) {
 	var (
 		baseURL *url.URL
 		err     error
 	)
-
+	// set ref on callback url
+	cbQuery := callbackURL.Query()
+	cbQuery.Set("token", authzRef)
+	callbackURL.RawQuery = cbQuery.Encode()
+	// Create redirect
 	baseURL, err = url.Parse(d.baseURL)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	buQuery := baseURL.Query()
 	buQuery.Set("callback", callbackURL.String())
 	baseURL.RawQuery = buQuery.Encode()
-
-	return baseURL, nil, nil
+	// return redirect
+	return baseURL, nil
 }
 
 // User returns a User and the original opaque token.
-func (d *datapuntIDP) User(r *http.Request, state []byte) (*oauth2.User, error) {
+func (d *datapuntIDP) AuthnCallback(r *http.Request) (string, *oauth2.User, error) {
 	q := r.URL.Query()
-	if token, ok := q["credentials"]; ok {
-		tokenPayload, err := d.jwtPayload(token[0])
-		if err != nil {
-			return nil, err
-		}
-		return d.user(tokenPayload.Subject)
+	token, ok := q["token"]
+	if !ok {
+		return "", nil, nil
 	}
-	return nil, errors.New("Invalid reply")
+	if credentials, ok := q["credentials"]; ok {
+		credentialsPayload, err := d.jwtPayload(credentials[0])
+		if err != nil {
+			return token[0], nil, nil
+		}
+		user, err := d.user(credentialsPayload.Subject)
+		return token[0], user, err
+	}
+	return token[0], nil, nil
 }
 
 func (d *datapuntIDP) jwtPayload(token string) (*jwtPayload, error) {
