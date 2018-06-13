@@ -61,6 +61,11 @@ secret = "idp-signkey"
 accounts-url = "https://acc.api.data.amsterdam.nl/authz_admin/accounts/"
 
 
+# [idp-google]
+# client-id = "your-client-id.apps.googleusercontent.com"
+# client-secret = "yourclientsecret"
+
+
 [clients]
 # OAuth 2.0 clients. Require client-id, granttype and redirects.
 
