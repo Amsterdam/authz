@@ -112,7 +112,7 @@ func (d *datapuntIDP) AuthnCallback(r *http.Request) (string, *oauth2.User, erro
 		if err != nil {
 			logger.WithFields(log.Fields{
 				"token": credentials[0],
-				"error": err
+				"error": err,
 			}).Warn("Couldn't decode datapunt IdP token / jwt")
 			return token[0], nil, nil
 		}
