@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/amsterdam/authz/oauth2"
+	log "github.com/sirupsen/logrus"
 )
 
 type jwtHeader struct {
@@ -93,19 +94,32 @@ func (d *datapuntIDP) AuthnRedirect(callbackURL *url.URL, authzRef string) (*url
 
 // User returns a User and the original opaque token.
 func (d *datapuntIDP) AuthnCallback(r *http.Request) (string, *oauth2.User, error) {
+	// Create context logger
+	logFields := log.Fields{
+		"type": "authn callback request",
+		"uri":  r.RequestURI,
+	}
+	logger := log.WithFields(logFields)
+	// Handle request
 	q := r.URL.Query()
 	token, ok := q["token"]
 	if !ok {
+		logger.Infoln("Token parameter missing from request")
 		return "", nil, nil
 	}
 	if credentials, ok := q["credentials"]; ok {
 		credentialsPayload, err := d.jwtPayload(credentials[0])
 		if err != nil {
+			logger.WithFields(log.Fields{
+				"token": credentials[0],
+				"error": err
+			}).Warn("Couldn't decode datapunt IdP token / jwt")
 			return token[0], nil, nil
 		}
 		user, err := d.user(credentialsPayload.Subject)
 		return token[0], user, err
 	}
+	logger.Infoln("Credentials parameter missing from request")
 	return token[0], nil, nil
 }
 

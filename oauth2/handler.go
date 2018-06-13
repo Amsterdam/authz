@@ -279,7 +279,6 @@ func (h *handler) serveIDPCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if user == nil {
-		logger.WithError(err).Infoln("Error authenticating user")
 		h.errorResponse(w, redirectURI, "access_denied", "couldn't authenticate user")
 		return
 	}
