@@ -13,3 +13,6 @@ services:
       - "8080:8080"
     volumes:
       - ./etc/config.sample.toml:/etc/config.toml
+
+  jwkgen:
+    build: ./jwkgen
