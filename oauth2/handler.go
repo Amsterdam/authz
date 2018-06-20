@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/amsterdam/authz/jose"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -82,12 +83,16 @@ func Handler(baseURL string, jwks string, options ...Option) (http.Handler, erro
 	}
 	// Create and return handler
 	mux := http.NewServeMux()
-	mux.HandleFunc("/oauth2/authorize", h.serveAuthorizationRequest)
+	mux.HandleFunc(
+		"/oauth2/authorize", timedHandler(h.serveAuthorizationRequest, "authorize"),
+	)
 	// Register one callback per idp so we can route correctly
 	for idpID := range h.idps {
 		path := fmt.Sprintf("/oauth2/callback/%s", idpID)
-		mux.HandleFunc(path, h.serveIDPCallback)
+		mux.HandleFunc(path, timedHandler(h.serveIDPCallback, idpID+"_callback"))
 	}
+	// Register Prometheis metrics endpoint
+	mux.Handle("/metrics", promhttp.Handler())
 	return mux, nil
 }
 
