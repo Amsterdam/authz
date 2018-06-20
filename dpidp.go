@@ -27,41 +27,21 @@ type jwtPayload struct {
 	Subject   string `json:"sub"`
 }
 
-type authnHalAccount struct {
-	Etag  string        `json:"_etag"`
-	Links authnHalLinks `json:"_links"`
-}
-
-type authnHalLinks struct {
-	Self  authnHalLinkItem   `json:"self"`
-	Roles []authnHalLinkItem `json:"role"`
-}
-
-type authnHalLinkItem struct {
-	HREF  string `json:"href"`
-	Name  string `json:"name"`
-	Title string `json:"title"`
-}
-
 // An IdP implementation of the Datapunt IdP.
 type datapuntIDP struct {
-	baseURL     string
-	accountsURL *url.URL
-	secret      []byte
-	apiKey      string
-	client      *http.Client
+	idpBaseURL   string
+	oauthBaseURL string
+	secret       []byte
+	client       *http.Client
+	dpRoles      *datapuntRoles
 }
 
 // Constructor. Validating its config and creates the instance.
 func newDatapuntIDP(
-	baseURL string, accountsURL string, secret []byte, apiKey string,
+	idpBaseURL string, secret []byte, oauthBaseURL string, dpRoles *datapuntRoles,
 ) (*datapuntIDP, error) {
-	accURL, err := url.Parse(accountsURL)
-	if err != nil {
-		return nil, errors.New("Invalid accounts URL for Datapunt IdP")
-	}
 	return &datapuntIDP{
-		baseURL, accURL, secret, apiKey, &http.Client{Timeout: 1 * time.Second},
+		idpBaseURL, oauthBaseURL, secret, &http.Client{Timeout: 1 * time.Second}, dpRoles,
 	}, nil
 }
 
@@ -70,18 +50,27 @@ func (d *datapuntIDP) ID() string {
 	return "datapunt"
 }
 
+func (d *datapuntIDP) oauth2CallbackURL() string {
+	return d.oauthBaseURL + "oauth2/callback/" + d.ID()
+}
+
 // AuthnRedirect generates the Authentication redirect.
-func (d *datapuntIDP) AuthnRedirect(callbackURL *url.URL, authzRef string) (*url.URL, error) {
+func (d *datapuntIDP) AuthnRedirect(authzRef string) (*url.URL, error) {
 	var (
 		baseURL *url.URL
 		err     error
 	)
+	// Parse callback
+	callbackURL, err := url.Parse(d.oauth2CallbackURL())
+	if err != nil {
+		return nil, err
+	}
 	// set ref on callback url
 	cbQuery := callbackURL.Query()
 	cbQuery.Set("token", authzRef)
 	callbackURL.RawQuery = cbQuery.Encode()
 	// Create redirect
-	baseURL, err = url.Parse(d.baseURL)
+	baseURL, err = url.Parse(d.idpBaseURL)
 	if err != nil {
 		return nil, err
 	}
@@ -97,6 +86,7 @@ func (d *datapuntIDP) AuthnCallback(r *http.Request) (string, *oauth2.User, erro
 	// Create context logger
 	logFields := log.Fields{
 		"type": "authn callback request",
+		"idp":  "Datapunt",
 		"uri":  r.RequestURI,
 	}
 	logger := log.WithFields(logFields)
@@ -116,8 +106,11 @@ func (d *datapuntIDP) AuthnCallback(r *http.Request) (string, *oauth2.User, erro
 			}).Warn("Couldn't decode datapunt IdP token / jwt")
 			return token[0], nil, nil
 		}
-		user, err := d.user(credentialsPayload.Subject)
-		return token[0], user, err
+		roles, err := d.dpRoles.Get(credentialsPayload.Subject)
+		if err != nil {
+			return token[0], nil, err
+		}
+		return token[0], &oauth2.User{UID: credentialsPayload.Subject, Data: roles}, nil
 	}
 	logger.Infoln("Credentials parameter missing from request")
 	return token[0], nil, nil
@@ -170,36 +163,4 @@ func (d *datapuntIDP) jwtPayload(token string) (*jwtPayload, error) {
 		return &payload, nil
 	}
 	return nil, errors.New("Invalid credentials: token doesn't have 3 parts")
-}
-
-func (d *datapuntIDP) user(uid string) (*oauth2.User, error) {
-	accountURL, err := d.accountsURL.Parse(uid)
-	if err != nil {
-		return nil, err
-	}
-	request, err := http.NewRequest("GET", accountURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-	request.Header.Set("Authorization", fmt.Sprintf("apikey %s", d.apiKey))
-	resp, err := d.client.Do(request)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != 200 {
-		msg := fmt.Sprintf("Unexpected response code from Datapunt IdP when requesting roles: %s\n", resp.Status)
-		return nil, errors.New(msg)
-	}
-	var account authnHalAccount
-	dec := json.NewDecoder(resp.Body)
-	if err := dec.Decode(&account); err != nil {
-		return nil, err
-	}
-	// Create User
-	var roles []string
-	for _, role := range account.Links.Roles {
-		roles = append(roles, role.Name)
-	}
-	return &oauth2.User{UID: uid, Data: roles}, nil
 }

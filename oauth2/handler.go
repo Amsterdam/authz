@@ -324,11 +324,7 @@ func (h *handler) authnSession(idp IDP, state *authorizationState) (string, erro
 	rand.Read(token)
 	b64Token := base64.RawURLEncoding.EncodeToString(token)
 	// Get authentication redirect
-	callbackURL, err := h.callbackURL.Parse(idp.ID())
-	if err != nil {
-		return "", err
-	}
-	redir, err := idp.AuthnRedirect(callbackURL, b64Token)
+	redir, err := idp.AuthnRedirect(b64Token)
 	if err != nil {
 		return "", err
 	}

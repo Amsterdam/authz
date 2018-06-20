@@ -103,7 +103,7 @@ type IDP interface {
 	ID() string
 	// AuthnRedirect is responsible for generating a URL that we can redirect
 	// the user to for authentication.
-	AuthnRedirect(callbackURL *url.URL, authzRef string) (*url.URL, error)
+	AuthnRedirect(authzRef string) (*url.URL, error)
 	// AuthnCallback receives the IDP's callback request. It returns the
 	// authzRef as given to the corresponding call to AuthnRedirect, and the
 	// logged-in User or nil if authentication failed.

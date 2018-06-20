@@ -24,8 +24,10 @@ type config struct {
 	AuthnTimeout int               `toml:"authn-timeout"`
 	TraceHeader  string            `toml:"trace-header-name"`
 	LogJSON      bool              `toml:"log-json-output"`
-	DatapuntIDP  DatapuntIDPConfig `toml:"idp-datapunt"`
-	GoogleIDP    GoogleIDPConfig   `toml:"idp-google"`
+	Roles        rolesConfig       `toml:"roles"`
+	DatapuntIDP  datapuntIDPConfig `toml:"idp-datapunt"`
+	GoogleIDP    googleIDPConfig   `toml:"idp-google"`
+	GripIDP      gripIDPConfig     `toml:"idp-grip"`
 	Clients      clientMap         `toml:"clients"`
 	Authz        authzConfig       `toml:"authorization"`
 	Redis        redisConfig       `toml:"redis"`
@@ -52,16 +54,26 @@ type authzConfig struct {
 	UpdateInterval int    `toml:"update-interval"`
 }
 
-// DatapuntIDPConfig contains DP IdP config
-type DatapuntIDPConfig struct {
-	BaseURL     string `toml:"base-url"`
+// Datapunt user roles config
+type rolesConfig struct {
 	AccountsURL string `toml:"accounts-url"`
 	APIKey      string `toml:"api-key"`
-	Secret      string `toml:"secret"`
+}
+
+// DatapuntIDPConfig contains DP IdP config
+type datapuntIDPConfig struct {
+	BaseURL string `toml:"base-url"`
+	Secret  string `toml:"secret"`
 }
 
 // GoogleIDPConfig contains Google IdP config
-type GoogleIDPConfig struct {
+type googleIDPConfig struct {
+	ClientID     string `toml:"client-id"`
+	ClientSecret string `toml:"client-secret"`
+}
+
+type gripIDPConfig struct {
+	TenantID     string `toml:"tenant-id"`
 	ClientID     string `toml:"client-id"`
 	ClientSecret string `toml:"client-secret"`
 }

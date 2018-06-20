@@ -51,19 +51,34 @@ jwk-set = """
 # password = ""
 
 
+[roles]
+accounts-url = "https://acc.api.data.amsterdam.nl/authz_admin/accounts/"
+## api-key is authz_admin_api_key_(acc|prod) in ansible-vault
+api-key = "apikey"
+
+
+[authorization]
+## Authorization configuration.
+base-url = "https://acc.api.data.amsterdam.nl/authz_admin/"
+update-interval = 600
+
+
 [idp-datapunt]
 ## IdP configuration
 base-url = "https://acc.api.data.amsterdam.nl/auth/idp/login"
-api-key = "apikey"
-## api-key is authz_admin_api_key_(acc|prod) in ansible-vault
-secret = "idp-signkey"
 ## secret is refreshtoken_key_(acc|prod) in ansible-vault
-accounts-url = "https://acc.api.data.amsterdam.nl/authz_admin/accounts/"
+secret = "idp-signkey"
 
 
 # [idp-google]
-# client-id = "your-client-id.apps.googleusercontent.com"
-# client-secret = "yourclientsecret"
+# client-id = "your client id"
+# client-secret = "your client secret"
+
+
+# [idp-grip]
+# tenant-id = "your tenant id"
+# client-id = "your client id"
+# client-secret = "your client secret"
 
 
 [clients]
@@ -72,8 +87,3 @@ accounts-url = "https://acc.api.data.amsterdam.nl/authz_admin/accounts/"
 [clients."citydata"]
 redirects = ["http://localhost:8080/"]
 granttype = "token"  # "code" | "token" | "client_credentials"
-
-[authorization]
-## Authorization configuration.
-base-url = "https://acc.api.data.amsterdam.nl/authz_admin/"
-update-interval = 600

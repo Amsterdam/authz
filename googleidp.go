@@ -48,13 +48,15 @@ type googleIDToken struct {
 type googleIDP struct {
 	clientID     string
 	clientSecret string
+	oauthBaseURL string
+	roles        *datapuntRoles
 	client       *http.Client
 }
 
 // Constructor. Validating its config and creates the instance.
-func newGoogleIDP(clientID string, clientSecret string) *googleIDP {
+func newGoogleIDP(clientID string, clientSecret string, oauthBaseURL string, roles *datapuntRoles) *googleIDP {
 	return &googleIDP{
-		clientID, clientSecret, &http.Client{Timeout: 1 * time.Second},
+		clientID, clientSecret, oauthBaseURL, roles, &http.Client{Timeout: 1 * time.Second},
 	}
 }
 
@@ -63,12 +65,12 @@ func (g *googleIDP) ID() string {
 	return "google-oic"
 }
 
+func (g *googleIDP) oauth2CallbackURL() string {
+	return g.oauthBaseURL + "oauth2/callback/" + g.ID()
+}
+
 // AuthnRedirect generates the Authentication redirect.
-func (g *googleIDP) AuthnRedirect(callbackURL *url.URL, authzRef string) (*url.URL, error) {
-	// Build state
-	data := url.Values{}
-	data.Set("ref", authzRef)
-	data.Set("redirect_uri", callbackURL.String())
+func (g *googleIDP) AuthnRedirect(authzRef string) (*url.URL, error) {
 	// Build URL
 	authURL, err := url.Parse(googleAuthURL)
 	if err != nil {
@@ -78,8 +80,8 @@ func (g *googleIDP) AuthnRedirect(callbackURL *url.URL, authzRef string) (*url.U
 	authQuery.Set("client_id", g.clientID)
 	authQuery.Set("response_type", "code")
 	authQuery.Set("scope", "openid email")
-	authQuery.Set("redirect_uri", callbackURL.String())
-	authQuery.Set("state", data.Encode())
+	authQuery.Set("redirect_uri", g.oauth2CallbackURL())
+	authQuery.Set("state", authzRef)
 	authURL.RawQuery = authQuery.Encode()
 	return authURL, nil
 }
@@ -88,24 +90,23 @@ func (g *googleIDP) AuthnRedirect(callbackURL *url.URL, authzRef string) (*url.U
 func (g *googleIDP) AuthnCallback(r *http.Request) (string, *oauth2.User, error) {
 	// Parse request
 	q := r.URL.Query()
+	// Get authzRef
 	state, ok := q["state"]
 	if !ok {
 		return "", nil, nil
 	}
-	stateData, err := url.ParseQuery(state[0])
-	if err != nil {
-		return "", nil, nil
-	}
+	authzRef := state[0]
+	// Get code
 	authzCode, ok := q["code"]
 	if !ok {
-		return stateData.Get("ref"), nil, nil
+		return authzRef, nil, nil
 	}
 	// Build request parameters
 	data := url.Values{}
 	data.Set("code", authzCode[0])
 	data.Set("client_id", g.clientID)
 	data.Set("client_secret", g.clientSecret)
-	data.Set("redirect_uri", stateData.Get("redirect_uri"))
+	data.Set("redirect_uri", g.oauth2CallbackURL())
 	data.Set("grant_type", googleGrantType)
 	// Get token
 	resp, err := g.client.PostForm(googleTokenURL, data)
@@ -114,30 +115,35 @@ func (g *googleIDP) AuthnCallback(r *http.Request) (string, *oauth2.User, error)
 	}
 	// Parse response
 	if resp.StatusCode != 200 {
-		return stateData.Get("ref"), nil, nil
+		return authzRef, nil, nil
 	}
 	buf := new(bytes.Buffer)
 	buf.ReadFrom(resp.Body)
 	var authData googleIDPResponseData
 	if err := json.Unmarshal(buf.Bytes(), &authData); err != nil {
-		return stateData.Get("ref"), nil, nil
+		return authzRef, nil, nil
 	}
 	// split the id token
 	parts := strings.Split(authData.IDToken, ".")
 	if len(parts) != 3 {
-		return stateData.Get("ref"), nil, nil
+		return authzRef, nil, nil
 	}
 	b64IDToken := parts[1]
 	// decode the payload
 	rawIDToken, err := base64.RawURLEncoding.DecodeString(b64IDToken)
 	if err != nil {
-		return stateData.Get("ref"), nil, nil
+		return authzRef, nil, nil
 	}
 	var idToken googleIDToken
 	if err := json.Unmarshal(rawIDToken, &idToken); err != nil {
 		fmt.Println(err)
-		return stateData.Get("ref"), nil, nil
+		return authzRef, nil, nil
 	}
-	return stateData.Get("ref"), &oauth2.User{UID: idToken.Subject, Data: []string{"CDE_PLUS"}}, nil
+	// Get roles
+	roles, err := g.roles.Get(idToken.Email)
+	if err != nil {
+		return authzRef, nil, nil
+	}
+	return authzRef, &oauth2.User{UID: idToken.Subject, Data: roles}, nil
 
 }

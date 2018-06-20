@@ -84,28 +84,60 @@ func conf() *config {
 
 func options(conf *config) []oauth2.Option {
 	var options []oauth2.Option
-	// Datapunt IdP
-	if (conf.DatapuntIDP != DatapuntIDPConfig{}) {
-		if idp, err := newDatapuntIDP(
-			conf.DatapuntIDP.BaseURL,
-			conf.DatapuntIDP.AccountsURL,
-			[]byte(conf.DatapuntIDP.Secret),
-			conf.DatapuntIDP.APIKey,
-		); err != nil {
+
+	// Roles (may be required, depends on the configured IdP)
+	var roles *datapuntRoles
+	if (conf.Roles != rolesConfig{}) {
+		r, err := newDatapuntRoles(conf.Roles.AccountsURL, conf.Roles.APIKey)
+		if err != nil {
 			log.Fatal(err)
-		} else {
-			options = append(options, oauth2.IDProvider(idp))
 		}
-	} else {
-		log.Fatal("Must configure an IdP")
+		roles = r
+	}
+
+	var idpRegistered bool
+	// Datapunt IdP
+	if (conf.DatapuntIDP != datapuntIDPConfig{}) {
+		if roles == nil {
+			log.Fatal("Datapunt IdP needs Datapunt Roles")
+		}
+		idp, err := newDatapuntIDP(
+			conf.DatapuntIDP.BaseURL, []byte(conf.DatapuntIDP.Secret),
+			conf.BaseURL, roles,
+		)
+		if err != nil {
+			log.Fatal(err)
+		}
+		options = append(options, oauth2.IDProvider(idp))
+		idpRegistered = true
 	}
 	// Google OIC IdP
-	if (conf.GoogleIDP != GoogleIDPConfig{}) {
+	if (conf.GoogleIDP != googleIDPConfig{}) {
+		if roles == nil {
+			log.Fatal("Google IdP needs Datapunt Roles")
+		}
 		idp := newGoogleIDP(
-			conf.GoogleIDP.ClientID, conf.GoogleIDP.ClientSecret,
+			conf.GoogleIDP.ClientID, conf.GoogleIDP.ClientSecret, conf.BaseURL, roles,
 		)
 		options = append(options, oauth2.IDProvider(idp))
+		idpRegistered = true
 	}
+	// Grip OIC IdP
+	if (conf.GripIDP != gripIDPConfig{}) {
+		if roles == nil {
+			log.Fatal("Grip IdP needs Datapunt Roles")
+		}
+		idp := newGripIDP(
+			conf.GripIDP.TenantID, conf.GripIDP.ClientID,
+			conf.GripIDP.ClientSecret, conf.BaseURL, roles,
+		)
+		options = append(options, oauth2.IDProvider(idp))
+		idpRegistered = true
+	}
+	if !idpRegistered {
+		log.Fatal("Must register at least one IdP")
+	}
+
 	// Clients
 	if len(conf.Clients) == 0 {
 		log.Fatal("Must configure at least one registered client")

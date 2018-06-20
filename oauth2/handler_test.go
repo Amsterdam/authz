@@ -257,11 +257,18 @@ func validCallbackURL(t *testing.T, handler http.Handler) string {
 }
 
 func testHandler(tokenSecret string) http.Handler {
+	// Base URL
+	baseURL := "http://test/"
+
+	// OPTIONS
 	var options []Option
 	// IDP with two users
 	idp := &testIDP{
-		&User{UID: "user:1"},
-		&User{UID: "user:2"},
+		BaseURL: baseURL,
+		Users: []*User{
+			&User{UID: "user:1"},
+			&User{UID: "user:2"},
+		},
 	}
 	options = append(options, IDProvider(idp))
 	// Clients
@@ -289,27 +296,38 @@ func testHandler(tokenSecret string) http.Handler {
 			{ "kty": "EC", "key_ops": ["sign"], "kid": "1", "crv": "P-256", "x": "g9IULlEyYGp3i2IZ1STiuDQ0rcrt3r3o-01f7_wOM_o=", "y": "8QfpzSUvN4UAI4PliUXpeOv8RwLU8P8qLXqhTCc4w1M=", "d": "dIz2ALAunAxB5ajQVx3fAdbttNX4WazEyvXLyi6BFBc=" }
 		]}
 	`
-	handler, _ := Handler("http://test/", jwks, options...)
+	handler, _ := Handler(baseURL, jwks, options...)
 	return handler
 }
 
 ///////
 // testIDP
 ///////
-type testIDP []*User
+type testIDP struct {
+	BaseURL string
+	Users   []*User
+}
 
-func (a testIDP) ID() string {
+func (a *testIDP) ID() string {
 	return "testidp"
 }
 
-func (a testIDP) AuthnRedirect(callbackURL *url.URL, authzRef string) (*url.URL, error) {
+func (a *testIDP) callbackURL() string {
+	return a.BaseURL + "oauth2/callback/" + a.ID()
+}
+
+func (a *testIDP) AuthnRedirect(authzRef string) (*url.URL, error) {
+	callbackURL, err := url.Parse(a.callbackURL())
+	if err != nil {
+		return nil, err
+	}
 	query := callbackURL.Query()
 	query.Set("ref", authzRef)
 	callbackURL.RawQuery = query.Encode()
 	return callbackURL, nil
 }
 
-func (a testIDP) AuthnCallback(r *http.Request) (string, *User, error) {
+func (a *testIDP) AuthnCallback(r *http.Request) (string, *User, error) {
 	authzRef, ok := r.URL.Query()["ref"]
 	if !ok {
 		return "", nil, nil
@@ -318,7 +336,7 @@ func (a testIDP) AuthnCallback(r *http.Request) (string, *User, error) {
 	if !ok {
 		return authzRef[0], nil, nil
 	}
-	for _, u := range a {
+	for _, u := range a.Users {
 		if u.UID == uid[0] {
 			return authzRef[0], u, nil
 		}
