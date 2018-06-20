@@ -113,7 +113,7 @@ type gripUserInfo struct {
 	PhoneNumberHome   string                     `json:"phone_number_home"`
 	PhoneNumberMobile string                     `json:"phone_number_mobile"`
 	Address           gripUserInfoAddress        `json:"address"`
-	UpdatedAt         string                     `json:"updated_at"`
+	UpdatedAt         int                        `json:"updated_at"`
 	GripUser          gripUserInfoUser           `json:"grip_user"`
 	SCIMEnterprise    gripUserInfoSCIMEnterprise `json:"scim_enterprise"`
 	GripService       gripUserInfoGripService    `json:"grip_service"`
@@ -278,8 +278,14 @@ func (g *gripIDP) AuthnCallback(r *http.Request) (string, *oauth2.User, error) {
 		return authzRef, nil, nil
 	}
 
-	return authzRef, &oauth2.User{UID: userInfo.Email, Data: []string{"CDE_PLUS"}}, nil
+	// Get roles
+	roles, err := g.roles.Get(userInfo.Email)
+	if err != nil {
+		logger.Warnf("Error getting authorization data: %v", err)
+		return authzRef, nil, nil
+	}
 
+	return authzRef, &oauth2.User{UID: userInfo.Email, Data: roles}, nil
 }
 
 func (g *gripIDP) authzData(authzCode string) (*gripAuthzData, error) {
