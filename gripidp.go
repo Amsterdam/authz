@@ -30,7 +30,15 @@ type gripAuthzData struct {
 	ExpiresIn   int    `json:"expires_in"`
 	IDToken     string `json:"id_token"`
 
-	client *http.Client
+	gripUserInfoURL string
+	client          *http.Client
+}
+
+func newGripAuthzData(gripUserInfoURL string, client *http.Client) *gripAuthzData {
+	return &gripAuthzData{
+		gripUserInfoURL: gripUserInfoURL,
+		client:          client,
+	}
 }
 
 func (g *gripAuthzData) idToken() (*gripIDToken, error) {
@@ -55,7 +63,7 @@ func (g *gripAuthzData) idToken() (*gripIDToken, error) {
 
 func (g *gripAuthzData) userInfo() (*gripUserInfo, error) {
 	// Create UserInfo request
-	req, err := http.NewRequest("GET", gripUserInfoURL, nil)
+	req, err := http.NewRequest("GET", g.gripUserInfoURL, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -214,7 +222,7 @@ func (g *gripIDP) oauth2CallbackURL() string {
 // AuthnRedirect generates the Authentication redirect.
 func (g *gripIDP) AuthnRedirect(authzRef string) (*url.URL, error) {
 	// Build state
-	authURL, err := url.Parse(gripAuthURL)
+	authURL, err := url.Parse(g.authURL)
 	if err != nil {
 		return nil, err
 	}
@@ -281,7 +289,7 @@ func (g *gripIDP) authzData(authzCode string) (*gripAuthzData, error) {
 	data.Set("redirect_uri", g.oauth2CallbackURL())
 	data.Set("grant_type", gripGrantType)
 	req, err := http.NewRequest(
-		"POST", gripTokenURL, strings.NewReader(data.Encode()),
+		"POST", g.tokenURL, strings.NewReader(data.Encode()),
 	)
 	if err != nil {
 		return nil, err
@@ -305,10 +313,10 @@ func (g *gripIDP) authzData(authzCode string) (*gripAuthzData, error) {
 	}
 
 	// Decode response
-	var authzData gripAuthzData
-	if err := json.Unmarshal(body.Bytes(), &authzData); err != nil {
+	authzData := newGripAuthzData(g.userInfoURL, g.client)
+	if err := json.Unmarshal(body.Bytes(), authzData); err != nil {
 		return nil, err
 	}
 
-	return &authzData, nil
+	return authzData, nil
 }
