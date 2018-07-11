@@ -319,6 +319,7 @@ func (g *gripIDP) authzData(authzCode string) (*gripAuthzData, error) {
 		return nil, fmt.Errorf("Error from server while getting a token: %s", body.String())
 	}
 
+	log.Warnf("AuthzData body: %v, client: %v", body, g.client)
 	// Decode response
 	authzData := newGripAuthzData(g.userInfoURL, g.client)
 	if err := json.Unmarshal(body.Bytes(), authzData); err != nil {
