@@ -77,6 +77,14 @@ func (g *gripAuthzData) userInfo() (*gripUserInfo, error) {
 	body := new(bytes.Buffer)
 	body.ReadFrom(resp.Body)
 
+	// Create context logger
+	logFields := log.Fields{
+		"type": "UserInfo in callback request",
+		"idp":  "Grip",
+		"token":  g.AccessToken,
+	}
+	logger := log.WithFields(logFields)
+	logger.Warnf("Userinfo body: %v", body)
 	// Decode response
 	var userInfo gripUserInfo
 	if err := json.Unmarshal(body.Bytes(), &userInfo); err != nil {
