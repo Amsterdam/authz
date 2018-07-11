@@ -77,6 +77,7 @@ func (g *gripAuthzData) userInfo() (*gripUserInfo, error) {
 	body := new(bytes.Buffer)
 	body.ReadFrom(resp.Body)
 
+	log.Warnf("Userinfo body: %v, token: %v", body, g.AccessToken)
 	// Decode response
 	var userInfo gripUserInfo
 	if err := json.Unmarshal(body.Bytes(), &userInfo); err != nil {
