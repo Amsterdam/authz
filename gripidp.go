@@ -267,21 +267,21 @@ func (g *gripIDP) AuthnCallback(r *http.Request) (string, *oauth2.User, error) {
 	// Get the ID token
 	authzData, err := g.authzData(authzCode[0])
 	if err != nil {
-		logger.Warnf("Error getting authorization data: %v", err)
+		logger.Warnf("Error getting authorization data: %v, %v", err, authzCode[0])
 		return authzRef, nil, nil
 	}
 
 	// Get UserInfo
 	userInfo, err := authzData.userInfo()
 	if err != nil {
-		logger.Warnf("Error getting authorization data: %v", err)
+		logger.Warnf("Error getting authorization userinfo: %v", err)
 		return authzRef, nil, nil
 	}
 
 	// Get roles
 	roles, err := g.roles.Get(userInfo.Email)
 	if err != nil {
-		logger.Warnf("Error getting authorization data: %v", err)
+		logger.Warnf("Error getting authorization roles: %v", err)
 		return authzRef, nil, nil
 	}
 
