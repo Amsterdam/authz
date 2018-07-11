@@ -90,8 +90,8 @@ type gripIDToken struct {
 	Issuer     string `json:"iss"`
 	Subject    string `json:"sub"`
 	Audience   string `json:"aud"`
-	IssuedAt   int    `json:"iat"`
 	ExpiryTime int    `json:"exp"`
+	IssuedAt   int    `json:"iat"`
 }
 
 type gripUserInfo struct {
