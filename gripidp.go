@@ -77,7 +77,7 @@ func (g *gripAuthzData) userInfo() (*gripUserInfo, error) {
 	body := new(bytes.Buffer)
 	body.ReadFrom(resp.Body)
 
-	log.Warnf("Userinfo body: %v, token: %v", body, g.AccessToken)
+	// log.Warnf("Userinfo body: %v, token: %v", body, g.AccessToken)
 	// Decode response
 	var userInfo gripUserInfo
 	if err := json.Unmarshal(body.Bytes(), &userInfo); err != nil {
@@ -268,7 +268,7 @@ func (g *gripIDP) AuthnCallback(r *http.Request) (string, *oauth2.User, error) {
 	// Get the ID token
 	authzData, err := g.authzData(authzCode[0])
 	if err != nil {
-		logger.Warnf("Error getting authorization data: %v, %v", err, authzCode[0])
+		logger.Warnf("Error getting authorization data: %v", err)
 		return authzRef, nil, nil
 	}
 
@@ -319,7 +319,7 @@ func (g *gripIDP) authzData(authzCode string) (*gripAuthzData, error) {
 		return nil, fmt.Errorf("Error from server while getting a token: %s", body.String())
 	}
 
-	log.Warnf("AuthzData body: %v, client: %v", body, g.client)
+	// log.Warnf("AuthzData body: %v, client: %v", body, g.client)
 	// Decode response
 	authzData := newGripAuthzData(g.userInfoURL, g.client)
 	if err := json.Unmarshal(body.Bytes(), authzData); err != nil {
