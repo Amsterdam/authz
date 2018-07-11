@@ -280,7 +280,7 @@ func (g *gripIDP) AuthnCallback(r *http.Request) (string, *oauth2.User, error) {
 	}
 
 	// Get roles
-	roles, err := g.roles.Get(userInfo.Email)
+	roles, err := g.roles.Get(strings.ToLower(userInfo.Email))
 	if err != nil {
 		logger.Warnf("Error getting authorization roles: %v", err)
 		return authzRef, nil, nil
