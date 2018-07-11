@@ -67,8 +67,7 @@ func (g *gripAuthzData) userInfo() (*gripUserInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	// req.Header.Set("Authentication", fmt.Sprintf("Bearer %s", g.AccessToken))
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", g.IDToken))
+	req.Header.Set("Authentication", fmt.Sprintf("Bearer %s", g.AccessToken))
 
 	// Get userinfo
 	resp, err := g.client.Do(req)
