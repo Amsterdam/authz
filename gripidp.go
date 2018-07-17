@@ -289,17 +289,18 @@ func (g *gripIDP) AuthnCallback(r *http.Request) (string, *oauth2.User, error) {
 	}
 
 	// Get roles
-	roles, err := g.roles.Get(strings.ToLower(userInfo.Email))
-	if err != nil {
-		// Always return SIG_ADM for Grip IDP
-		roles = []string{"SIG_ADM"}
-	} else {
-		if ! stringInSlice("SIG_ADM", roles) {
-			roles = append(roles, "SIG_ADM")
-		}
-	}
-
-	return authzRef, &oauth2.User{UID: userInfo.Email, Data: roles}, nil
+	//roles, err := g.roles.Get(strings.ToLower(userInfo.Email))
+	//if err != nil {
+	//	// Always return SIG_ADM for Grip IDP
+	//	roles = []string{"SIG_ADM"}
+	//} else {
+	//	if ! stringInSlice("SIG_ADM", roles) {
+	//		roles = append(roles, "SIG_ADM")
+	//	}
+	//}
+	//
+	//return authzRef, &oauth2.User{UID: userInfo.Email, Data: roles}, nil
+	return authzRef, &oauth2.User{UID: userInfo.Email, Data: []string{"SIG_ADM"}}, nil
 }
 
 func (g *gripIDP) authzData(authzCode string) (*gripAuthzData, error) {
