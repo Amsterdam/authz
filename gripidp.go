@@ -237,6 +237,15 @@ func (g *gripIDP) AuthnRedirect(authzRef string) (*url.URL, error) {
 	return authURL, nil
 }
 
+func stringInSlice(a string, list []string) bool {
+	for _, b := range list {
+		if b == a {
+			return true
+		}
+	}
+	return false
+}
+
 // User returns a User and the original opaque token.
 func (g *gripIDP) AuthnCallback(r *http.Request) (string, *oauth2.User, error) {
 	q := r.URL.Query()
@@ -282,8 +291,12 @@ func (g *gripIDP) AuthnCallback(r *http.Request) (string, *oauth2.User, error) {
 	// Get roles
 	roles, err := g.roles.Get(strings.ToLower(userInfo.Email))
 	if err != nil {
-		logger.Warnf("Error getting authorization roles: %v", err)
-		return authzRef, nil, nil
+		// Always return SIG_ADM for Grip IDP
+		roles = []string{"SIG_ADM"}
+	} else {
+		if ! stringInSlice("SIG_ADM", roles) {
+			roles = append(roles, "SIG_ADM")
+		}
 	}
 
 	return authzRef, &oauth2.User{UID: userInfo.Email, Data: roles}, nil
