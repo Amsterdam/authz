@@ -287,7 +287,80 @@ func (g *gripIDP) AuthnCallback(r *http.Request) (string, *oauth2.User, error) {
 		logger.Warnf("Error getting authorization userinfo: %v", err)
 		return authzRef, nil, nil
 	}
-	logger.Infof("userinfo: %+v", *userInfo)
+	//logger.Infof("userinfo: %+v", *userInfo)
+	/*
+	The above line rendered the following info:
+
+		Subject:<some base64-encoded data>
+		PreferredUsername:halsem999
+		Name:Halsema, Femke
+		Title:
+		GivenName:Femke
+		MiddleName:
+		FamilyName:Halsema
+		NickName:
+		Profile:
+		Email:f....ema@amsterdam.nl
+		EmailAlternate:
+		Gender:
+		ZoneInfo:
+		Locale:
+		PhoneNumber:
+		PhoneNumberHome:
+		PhoneNumberMobile:
+		Address:
+			Street:
+			Locality:
+			Region:Noord-Holland
+			PostalCode:1000 AA
+			Country:
+		UpdatedAt:1531827348
+		GripUser:
+			Type:
+			Description:
+			Alias:halsem999
+			Roles:[]
+			Custom1:
+			Custom2:
+			Custom3:
+			Custom4:
+			Custom5:
+		SCIMEnterprise:
+			EmployeeNumber:
+			Division:
+			Department:
+			Manager:
+				Value:
+				Name:
+		GripService:
+			ID:signalPRD-rjsfm52t-c01
+			ShortName:
+			LongName:Signalen PRD
+			Description:Productieomgeving
+			Custom01:
+			Custom02:
+			Custom03:
+			Custom04:
+			Custom05:
+			Custom06:
+			Custom07:
+			Custom08:
+			Custom09:
+			Custom10:
+		GripTenant:
+			ID:<tenant_id>
+			KrnID:<krn_id>
+			EnterpriseIDs:[]
+			SNumbers:[]
+			ShortName:gemamsterdam
+			LongName:Gemeente Amsterdam
+			Description:Gemeente Amsterdam
+			Custom1:
+			Custom2:
+			Custom3:
+			Custom4:
+			Custom5:
+	 */
 
 	// Get roles
 	roles, err := g.roles.Get(strings.ToLower(userInfo.Email))
