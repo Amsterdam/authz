@@ -2,10 +2,10 @@ package main
 
 import (
 	"errors"
-	"io/ioutil"
-
 	"github.com/BurntSushi/toml"
 	"github.com/amsterdam/authz/oauth2"
+	"io/ioutil"
+	"regexp"
 )
 
 const (
@@ -80,9 +80,11 @@ type gripIDPConfig struct {
 
 // Client configuration
 type clientConfig struct {
-	Redirects []string `toml:"redirects"`
-	Secret    string   `toml:"secret"`
-	GrantType string   `toml:"granttype"`
+	Redirects               []string `toml:"redirects"`
+	RedirectRegexps         []string `toml:"redirect-regexps"`
+	CompiledRedirectRegexps []*regexp.Regexp
+	Secret                  string `toml:"secret"`
+	GrantType               string `toml:"granttype"`
 }
 
 // Client lookup
@@ -92,7 +94,11 @@ type clientMap map[string]clientConfig
 func (m clientMap) Get(id string) (*oauth2.Client, error) {
 	if c, ok := m[id]; ok {
 		return &oauth2.Client{
-			ID: id, Redirects: c.Redirects, Secret: c.Secret, GrantType: c.GrantType,
+			ID:                      id,
+			Redirects:               c.Redirects,
+			RedirectRegexps: c.CompiledRedirectRegexps,
+			Secret:                  c.Secret,
+			GrantType:               c.GrantType,
 		}, nil
 	}
 	return nil, errors.New("Unknown client id")
@@ -112,6 +118,13 @@ func loadConfig(configPath string) (*config, error) {
 	}
 	if config.Authz.UpdateInterval == 0 {
 		config.Authz.UpdateInterval = defaultAuthzUpdateInterval
+	}
+	// Check if all regular expressions are valid:
+	for _, c := range config.Clients {
+		c.CompiledRedirectRegexps = make([]*regexp.Regexp, len(c.RedirectRegexps))
+		for i, r := range c.RedirectRegexps {
+			c.CompiledRedirectRegexps[i] = regexp.MustCompile(r)
+		}
 	}
 	return config, nil
 }

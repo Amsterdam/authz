@@ -161,6 +161,11 @@ func (h *handler) serveAuthorizationRequest(
 				break
 			}
 		}
+		for _, r := range client.RedirectRegexps {
+			if r.MatchString(redir[0]) {
+				authzState.RedirectURI = redir[0]
+			}
+		}
 	} else if len(client.Redirects) == 1 {
 		authzState.RedirectURI = client.Redirects[0]
 	}
