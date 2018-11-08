@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"regexp"
 	"sync"
 	"time"
 )
@@ -130,8 +129,6 @@ type Client struct {
 	ID string
 	// list of registered redirects
 	Redirects []string
-	// Regular expressions for registered redirects
-	RedirectRegexps []*regexp.Regexp
 	// client secret
 	Secret string
 	// Allowed grants (implicit, authz code, client credentials)
