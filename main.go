@@ -53,7 +53,7 @@ func main() {
 	// Start the OAuth 2.0 server
 	log.Printf("Starting service on %s.\n", bindAddr)
 	if err := server.ListenAndServe(); err != http.ErrServerClosed {
-		log.Warnln("Error shutting down service: %v\n", err)
+		log.Warnf("Error shutting down service: %v\n", err)
 	} else {
 		log.Println("Server stopped")
 	}
