@@ -1,21 +1,17 @@
 #!groovy
 
-String IMAGE = "build.datapunt.amsterdam.nl:5000/datapunt/authz:${env.BUILD_NUMBER}"
-String BRANCH = "${env.BRANCH_NAME}"
-String PLAYBOOK = "deploy-authz.yml"
-
 def tryStep(String message, Closure block, Closure tearDown = null) {
     try {
-        block();
+        block()
     }
     catch (Throwable t) {
         slackSend message: "${env.JOB_NAME}: ${message} failure ${env.BUILD_URL}", channel: '#ci-channel', color: 'danger'
 
-        throw t;
+        throw t
     }
     finally {
         if (tearDown) {
-            tearDown();
+            tearDown()
         }
     }
 }
@@ -28,26 +24,33 @@ node {
 
     stage('Test') {
         tryStep "test", {
-            sh "docker build --no-cache --pull --rm -f Dockerfile_test ." 
+            sh "docker build --no-cache --pull --rm -f Dockerfile_test ."
         }
     }
 
     stage("Build image") {
         tryStep "build", {
-            def image = docker.build(IMAGE)
-            image.push()
+            docker.withRegistry('https://repo.data.amsterdam.nl','docker-registry') {
+                def image = docker.build("datapunt/authz:${env.BUILD_NUMBER}", "--build-arg http_proxy=${JENKINS_HTTP_PROXY_STRING} --build-arg https_proxy=${JENKINS_HTTP_PROXY_STRING} .")
+                image.push()
+            }
         }
     }
 }
 
-if (BRANCH == "master") {
+
+String BRANCH = "${env.BRANCH_NAME}"
+
+if (BRANCH == "develop") {
 
     node {
         stage('Push acceptance image') {
             tryStep "image tagging", {
-                def image = docker.image(IMAGE)
-                image.pull()
-                image.push("acceptance")
+                docker.withRegistry('https://repo.data.amsterdam.nl','docker-registry') {
+                    def image = docker.image("datapunt/authz:${env.BUILD_NUMBER}")
+                    image.pull()
+                    image.push("acceptance")
+                }
             }
         }
     }
@@ -58,12 +61,11 @@ if (BRANCH == "master") {
             build job: 'Subtask_Openstack_Playbook',
             parameters: [
                     [$class: 'StringParameterValue', name: 'INVENTORY', value: 'acceptance'],
-                    [$class: 'StringParameterValue', name: 'PLAYBOOK', value: PLAYBOOK],
+                    [$class: 'StringParameterValue', name: 'PLAYBOOK', value: 'deploy-authz.yml'],
                 ]
             }
         }
     }
-
 
     stage('Waiting for approval') {
         slackSend channel: '#ci-channel', color: 'warning', message: 'Authz service is waiting for Production Release - please confirm'
@@ -72,11 +74,13 @@ if (BRANCH == "master") {
 
     node {
         stage('Push production image') {
-        tryStep "image tagging", {
-            def image = docker.image(IMAGE)
-            image.pull()
-                image.push("production")
-                image.push("latest")
+            tryStep "image tagging", {
+                docker.withRegistry('https://repo.data.amsterdam.nl','docker-registry') {
+                def image = docker.image("datapunt/authz:${env.BUILD_NUMBER}")
+                    image.pull()
+                    image.push("production")
+                    image.push("latest")
+                }
             }
         }
     }
@@ -87,7 +91,7 @@ if (BRANCH == "master") {
                 build job: 'Subtask_Openstack_Playbook',
                 parameters: [
                     [$class: 'StringParameterValue', name: 'INVENTORY', value: 'production'],
-                    [$class: 'StringParameterValue', name: 'PLAYBOOK', value: PLAYBOOK],
+                    [$class: 'StringParameterValue', name: 'PLAYBOOK', value: 'deploy-authz.yml'],
                 ]
             }
         }
