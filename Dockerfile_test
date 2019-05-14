@@ -1,6 +1,10 @@
 FROM golang:latest
   WORKDIR /go/src/github.com/amsterdam/authz
   COPY . /go/src/github.com/amsterdam/authz
+  RUN mkdir /usr/local/share/ca-certificates/extras
+  COPY adp_rootca.crt /usr/local/share/ca-certificates/extras/
+  RUN chmod 644 /usr/local/share/ca-certificates/extras/adp_rootca.crt
+  RUN update-ca-certificates
   RUN go get github.com/sparrc/gdm
   RUN gdm restore
   RUN go test -cover -bench=. ./...
