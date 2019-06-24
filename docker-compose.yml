@@ -13,12 +13,6 @@ services:
       - "8080:8080"
     volumes:
       - ./etc/config.sample.toml:/etc/config.toml
-    environment:
-      http_proxy:
-      https_proxy:
 
   jwkgen:
     build: ./jwkgen
-    environment:
-      http_proxy:
-      https_proxy:
