@@ -69,7 +69,9 @@ func TestAuthorizationHandler(t *testing.T) {
 		},
 		// Missing redirect_uri
 		&testAuthzRequest{
-			ClientID: "testclient2",
+			ClientID:     "testclient2",
+			ResponseType: "token",
+			IDPID:        "testidp",
 			Validate: func(r *http.Response) {
 				expectBadRequest(
 					"missing redirect_uri", t, r, "missing or invalid redirect_uri\n",
@@ -78,8 +80,10 @@ func TestAuthorizationHandler(t *testing.T) {
 		},
 		// Bad redirect_uri
 		&testAuthzRequest{
-			ClientID:    "testclient1",
-			RedirectURI: "http://bad/",
+			ClientID:     "testclient1",
+			RedirectURI:  "http://bad/",
+			ResponseType: "token",
+			IDPID:        "testidp",
 			Validate: func(r *http.Response) {
 				expectBadRequest(
 					"bad redirect_uri", t, r, "missing or invalid redirect_uri\n",
@@ -88,8 +92,10 @@ func TestAuthorizationHandler(t *testing.T) {
 		},
 		// Invalid redirect_uri (should be caught at client registration as well)
 		&testAuthzRequest{
-			ClientID:    "testclient2",
-			RedirectURI: ":",
+			ClientID:     "testclient2",
+			RedirectURI:  ":",
+			ResponseType: "token",
+			IDPID:        "testidp",
 			Validate: func(r *http.Response) {
 				if r.StatusCode != 500 {
 					t.Fatalf(
@@ -100,7 +106,9 @@ func TestAuthorizationHandler(t *testing.T) {
 		},
 		// Missing response_type
 		&testAuthzRequest{
-			ClientID: "testclient1",
+			ClientID:    "testclient1",
+			RedirectURI: "http://testclient/",
+			IDPID:       "testidp",
 			Validate: func(r *http.Response) {
 				expectErrorResponse(
 					"missing response_type", t, r, "invalid_request",
@@ -108,10 +116,12 @@ func TestAuthorizationHandler(t *testing.T) {
 				)
 			},
 		},
-		// Unspported response_type
+		// Unsupported response_type
 		&testAuthzRequest{
 			ClientID:     "testclient1",
+			RedirectURI:  "http://testclient/",
 			ResponseType: "code",
+			IDPID:        "testidp",
 			Validate: func(r *http.Response) {
 				expectErrorResponse(
 					"unsupported response_type", t, r, "unsupported_response_type",
@@ -122,7 +132,9 @@ func TestAuthorizationHandler(t *testing.T) {
 		// Invalid scope
 		&testAuthzRequest{
 			ClientID:     "testclient1",
+			RedirectURI:  "http://testclient/",
 			ResponseType: "token",
+			IDPID:        "testidp",
 			Scope:        []string{"scope:1", "thisisnoscope"},
 			Validate: func(r *http.Response) {
 				expectErrorResponse(
@@ -133,6 +145,7 @@ func TestAuthorizationHandler(t *testing.T) {
 		// Missing idp_id
 		&testAuthzRequest{
 			ClientID:     "testclient1",
+			RedirectURI:  "http://testclient/",
 			ResponseType: "token",
 			Validate: func(r *http.Response) {
 				expectErrorResponse(
@@ -143,6 +156,7 @@ func TestAuthorizationHandler(t *testing.T) {
 		// Unknown idp_id
 		&testAuthzRequest{
 			ClientID:     "testclient1",
+			RedirectURI:  "http://testclient/",
 			ResponseType: "token",
 			IDPID:        "invalid",
 			Validate: func(r *http.Response) {
@@ -154,21 +168,9 @@ func TestAuthorizationHandler(t *testing.T) {
 		// Successful request
 		&testAuthzRequest{
 			ClientID:     "testclient1",
+			RedirectURI:  "http://testclient/wildcard/anything",
 			ResponseType: "token",
 			IDPID:        "testidp",
-			Validate: func(r *http.Response) {
-				if r.StatusCode != 303 {
-					t.Fatalf(
-						"valid request: Unexpected response (expected 303, got %d)",
-						r.StatusCode,
-					)
-				}
-			},
-		},
-		// Succesful redirect_uri request
-		&testAuthzRequest{
-			ClientID:    "testclient1",
-			RedirectURI: "http://test/wildcard/anything",
 			Validate: func(r *http.Response) {
 				if r.StatusCode != 303 {
 					t.Fatalf(
