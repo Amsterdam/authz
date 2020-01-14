@@ -165,6 +165,19 @@ func TestAuthorizationHandler(t *testing.T) {
 				}
 			},
 		},
+		// Succesful redirect_uri request
+		&testAuthzRequest{
+			ClientID:    "testclient1",
+			RedirectURI: "http://test/wildcard/anything",
+			Validate: func(r *http.Response) {
+				if r.StatusCode != 303 {
+					t.Fatalf(
+						"valid request: Unexpected response (expected 303, got %d)",
+						r.StatusCode,
+					)
+				}
+			},
+		},
 	}
 	handler := testHandler("test")
 	for _, test := range tests {
@@ -191,9 +204,16 @@ func TestInvalidCallbackToken(t *testing.T) {
 }
 
 func TestValidCallbackToken(t *testing.T) {
+	verifyCallbackToken(t, "http://testclient/")
+	verifyCallbackToken(t, "http://testclient/specific/url")
+	verifyCallbackToken(t, "http://testclient/wildcard/*")
+	verifyCallbackToken(t, "http://testclient/wildcard/anything")
+	verifyCallbackToken(t, "http://testclient/wildcard/anything/12345")
+}
+func verifyCallbackToken(t *testing.T, redirectUri string) {
 	handler := testHandler("test")
 	// First, make a valid authz request to get a valid token
-	callback := validCallbackURL(t, handler)
+	callback := validCallbackURL(t, handler, redirectUri)
 	// Now make the valid callback request
 	callbackReq := httptest.NewRequest("GET", callback, nil)
 	w := httptest.NewRecorder()
@@ -223,11 +243,11 @@ func TestValidCallbackToken(t *testing.T) {
 	}
 }
 
-func validCallbackURL(t *testing.T, handler http.Handler) string {
+func validCallbackURL(t *testing.T, handler http.Handler, redirectUri string) string {
 	authzReq := httptest.NewRequest("GET", "http://test/oauth2/authorize", nil)
 	q := authzReq.URL.Query()
 	q.Set("client_id", "testclient1")
-	q.Set("redirect_uri", "http://testclient/")
+	q.Set("redirect_uri", redirectUri)
 	q.Set("response_type", "token")
 	q.Set("state", "state")
 	q.Set("scope", "scope:1 scope:2 scope:3")
@@ -275,7 +295,7 @@ func testHandler(tokenSecret string) http.Handler {
 	clients := testClientMap{
 		&Client{
 			ID:        "testclient1",
-			Redirects: []string{"http://testclient/"},
+			Redirects: []string{"http://testclient/", "http://testclient/wildcard/*", "http://testclient/specific/url"},
 			GrantType: "token",
 		},
 		&Client{
