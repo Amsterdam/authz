@@ -154,23 +154,19 @@ func (h *handler) serveAuthorizationRequest(
 		return
 	}
 	// redirect_uri
-	if redir, ok := query["redirect_uri"]; ok {
-		for _, r := range client.Redirects {
-			lastChar := r[len(r)-1:]
-			if lastChar == "*" {
-				length := len(r) - 1
-				if len(redir[0]) >= length {
-					// do partial string match up to the '*' character, e.g.
-					// https://host/redirect/to/anywhere will match https://host/redirect/*
-					if r[:length] == redir[0][:length] {
-						authzState.RedirectURI = redir[0]
-						break
-					}
+	if requestedRedirectURI, ok := query["redirect_uri"]; ok {
+		for _, allowedRedirectURI := range client.Redirects {
+			if strings.HasSuffix(allowedRedirectURI, "*") {
+				// do partial string match up to the '*' character, e.g.
+				// https://host/redirect/to/anywhere will match https://host/redirect/*
+				if strings.HasPrefix(requestedRedirectURI[0], strings.TrimSuffix(allowedRedirectURI, "*")) {
+					authzState.RedirectURI = requestedRedirectURI[0]
+					break
 				}
 			} else {
 				// do an exact string match
-				if redir[0] == r {
-					authzState.RedirectURI = r
+				if requestedRedirectURI[0] == allowedRedirectURI {
+					authzState.RedirectURI = allowedRedirectURI
 					break
 				}
 			}
