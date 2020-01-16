@@ -21,6 +21,194 @@ type testAuthzRequest struct {
 	Validate     func(r *http.Response)
 }
 
+func testHandler(tokenSecret string) http.Handler {
+	baseURL := "http://test/"
+	var options []Option
+	idp := &testIDP{
+		BaseURL: baseURL,
+		Users: []*User{
+			&User{UID: "user:1"},
+			&User{UID: "user:2"},
+		},
+	}
+	options = append(options, IDProvider(idp))
+	clients := testClientMap{
+		&Client{
+			ID:        "testclient_single_redirect",
+			Redirects: []string{"http://testurl/"},
+			GrantType: "token",
+		},
+		&Client{
+			ID:        "testclient_multiple_redirects",
+			Redirects: []string{"http://testurl/something", "1234://another-invalid-U!R*L|[]"},
+			GrantType: "token",
+		},
+		&Client{
+			ID:        "testclient_wildcard_redirect",
+			Redirects: []string{"http://testurl/", "http://testurl/wildcard/*", "https://testurl/specific/url"},
+			GrantType: "token",
+		},
+	}
+	options = append(options, Clients(clients))
+	// Authorization provider
+	authz := newTestAuthz(map[string][]string{
+		"user:1": []string{"scope:1", "scope:2"},
+		"user:2": []string{"scope:2", "scope:3"},
+	})
+	options = append(options, AuthzProvider(authz))
+	var jwks = `
+		{ "keys": [
+			{ "kty": "EC", "key_ops": ["sign"], "kid": "1", "crv": "P-256", "x": "g9IULlEyYGp3i2IZ1STiuDQ0rcrt3r3o-01f7_wOM_o=", "y": "8QfpzSUvN4UAI4PliUXpeOv8RwLU8P8qLXqhTCc4w1M=", "d": "dIz2ALAunAxB5ajQVx3fAdbttNX4WazEyvXLyi6BFBc=" }
+		]}
+	`
+	handler, _ := Handler(baseURL, jwks, options...)
+	return handler
+}
+
+// Verify responses from valid and invalid authz requests
+// This function does not verify the callback
+func TestAuthorizationHandler(t *testing.T) {
+	var tests = []*testAuthzRequest{
+		// No input at all
+		&testAuthzRequest{
+			Validate: func(r *http.Response) {
+				expectBadRequest("no parameters", t, r, "missing client_id\n")
+			},
+		},
+		// Invalid client_id
+		&testAuthzRequest{
+			ClientID: "bad",
+			Validate: func(r *http.Response) {
+				expectBadRequest("invalid redirect_uri", t, r, "invalid client_id\n")
+			},
+		},
+		// Missing redirect_uri
+		&testAuthzRequest{
+			ClientID:     "testclient_multiple_redirects",
+			ResponseType: "token",
+			IDPID:        "testidp",
+			Validate: func(r *http.Response) {
+				expectBadRequest("missing redirect_uri", t, r, "missing or invalid redirect_uri\n")
+			},
+		},
+		// Missing response_type
+		&testAuthzRequest{
+			ClientID:    "testclient_multiple_redirects",
+			RedirectURI: "http://testurl/something",
+			IDPID:       "testidp",
+			Validate: func(r *http.Response) {
+				expectErrorResponse("missing response_type", t, r, "invalid_request", "response_type missing")
+			},
+		},
+		// Unsupported response_type
+		&testAuthzRequest{
+			ClientID:     "testclient_multiple_redirects",
+			RedirectURI:  "http://testurl/something",
+			ResponseType: "code",
+			IDPID:        "testidp",
+			Validate: func(r *http.Response) {
+				expectErrorResponse(
+					"unsupported response_type", t, r, "unsupported_response_type",
+					"response_type not supported for client",
+				)
+			},
+		},
+		// Invalid scope
+		&testAuthzRequest{
+			ClientID:     "testclient_multiple_redirects",
+			RedirectURI:  "http://testurl/something",
+			ResponseType: "token",
+			IDPID:        "testidp",
+			Scope:        []string{"scope:1", "thisisnoscope"},
+			Validate: func(r *http.Response) {
+				expectErrorResponse("invalid scope", t, r, "invalid_scope", "invalid scope: thisisnoscope")
+			},
+		},
+		// Missing idp_id
+		&testAuthzRequest{
+			ClientID:     "testclient_multiple_redirects",
+			RedirectURI:  "http://testurl/something",
+			ResponseType: "token",
+			Validate: func(r *http.Response) {
+				expectErrorResponse("missing idp_id", t, r, "invalid_request", "idp_id missing")
+			},
+		},
+		// Unknown idp_id
+		&testAuthzRequest{
+			ClientID:     "testclient_multiple_redirects",
+			RedirectURI:  "http://testurl/something",
+			ResponseType: "token",
+			IDPID:        "invalid",
+			Validate: func(r *http.Response) {
+				expectErrorResponse("unknown idp_id", t, r, "invalid_request", "unknown idp_id")
+			},
+		},
+		// Invalid redirect_uri (should be caught at client registration as well)
+		// URI is configured, but it is non-conform standard
+		&testAuthzRequest{
+			ClientID:     "testclient_multiple_redirects",
+			RedirectURI:  "1234://another-invalid-U!R*L|[]",
+			ResponseType: "token",
+			IDPID:        "testidp",
+			Validate: func(r *http.Response) {
+				if r.StatusCode != 500 {
+					t.Fatalf("invalid redirect_uri: got %d, expected 500", r.StatusCode)
+				}
+			},
+		},
+		// Unknown redirect_uri
+		&testAuthzRequest{
+			ClientID:     "testclient_wildcard_redirect",
+			RedirectURI:  "http://testurl/not/allowed",
+			ResponseType: "token",
+			IDPID:        "testidp",
+			Validate: func(r *http.Response) {
+				expectBadRequest("unknown redirect_uri", t, r, "missing or invalid redirect_uri\n")
+			},
+		},
+		// Successful request
+		&testAuthzRequest{
+			ClientID:     "testclient_multiple_redirects",
+			RedirectURI:  "http://testurl/something",
+			ResponseType: "token",
+			IDPID:        "testidp",
+			Validate: func(r *http.Response) {
+				if r.StatusCode != 303 {
+					t.Fatalf("valid request: Unexpected response (expected 303, got %d)", r.StatusCode)
+				}
+			},
+		},
+		// Successful request
+		// When no redirectURI given and client has exactly 1 redirectURI configured, the request is still valid
+		&testAuthzRequest{
+			ClientID:     "testclient_single_redirect",
+			ResponseType: "token",
+			IDPID:        "testidp",
+			Validate: func(r *http.Response) {
+				if r.StatusCode != 303 {
+					t.Fatalf("valid request: Unexpected response (expected 303, got %d)", r.StatusCode)
+				}
+			},
+		},
+		// Successful request with wildcard redirect
+		&testAuthzRequest{
+			ClientID:     "testclient_wildcard_redirect",
+			RedirectURI:  "http://testurl/wildcard/anything",
+			ResponseType: "token",
+			IDPID:        "testidp",
+			Validate: func(r *http.Response) {
+				if r.StatusCode != 303 {
+					t.Fatalf("valid request: Unexpected response (expected 303, got %d)", r.StatusCode)
+				}
+			},
+		},
+	}
+	handler := testHandler("test")
+	for _, test := range tests {
+		test.Do(handler)
+	}
+}
+
 func (r *testAuthzRequest) Do(handler http.Handler) {
 	req := httptest.NewRequest("GET", "http://test/oauth2/authorize", nil)
 	q := req.URL.Query()
@@ -48,145 +236,7 @@ func (r *testAuthzRequest) Do(handler http.Handler) {
 	r.Validate(w.Result())
 }
 
-func TestAuthorizationHandler(t *testing.T) {
-	var tests = []*testAuthzRequest{
-		// No input at all
-		&testAuthzRequest{
-			Validate: func(r *http.Response) {
-				expectBadRequest(
-					"no parameters", t, r, "missing client_id\n",
-				)
-			},
-		},
-		// Invalid client_id
-		&testAuthzRequest{
-			ClientID: "bad",
-			Validate: func(r *http.Response) {
-				expectBadRequest(
-					"invalid redirect_uri", t, r, "invalid client_id\n",
-				)
-			},
-		},
-		// Missing redirect_uri
-		&testAuthzRequest{
-			ClientID:     "testclient2",
-			ResponseType: "token",
-			IDPID:        "testidp",
-			Validate: func(r *http.Response) {
-				expectBadRequest(
-					"missing redirect_uri", t, r, "missing or invalid redirect_uri\n",
-				)
-			},
-		},
-		// Bad redirect_uri
-		&testAuthzRequest{
-			ClientID:     "testclient1",
-			RedirectURI:  "http://bad/",
-			ResponseType: "token",
-			IDPID:        "testidp",
-			Validate: func(r *http.Response) {
-				expectBadRequest(
-					"bad redirect_uri", t, r, "missing or invalid redirect_uri\n",
-				)
-			},
-		},
-		// Invalid redirect_uri (should be caught at client registration as well)
-		&testAuthzRequest{
-			ClientID:     "testclient2",
-			RedirectURI:  ":",
-			ResponseType: "token",
-			IDPID:        "testidp",
-			Validate: func(r *http.Response) {
-				if r.StatusCode != 500 {
-					t.Fatalf(
-						"invalid redirect_uri: got %d, expected 500", r.StatusCode,
-					)
-				}
-			},
-		},
-		// Missing response_type
-		&testAuthzRequest{
-			ClientID:    "testclient1",
-			RedirectURI: "http://testclient/",
-			IDPID:       "testidp",
-			Validate: func(r *http.Response) {
-				expectErrorResponse(
-					"missing response_type", t, r, "invalid_request",
-					"response_type missing",
-				)
-			},
-		},
-		// Unsupported response_type
-		&testAuthzRequest{
-			ClientID:     "testclient1",
-			RedirectURI:  "http://testclient/",
-			ResponseType: "code",
-			IDPID:        "testidp",
-			Validate: func(r *http.Response) {
-				expectErrorResponse(
-					"unsupported response_type", t, r, "unsupported_response_type",
-					"response_type not supported for client",
-				)
-			},
-		},
-		// Invalid scope
-		&testAuthzRequest{
-			ClientID:     "testclient1",
-			RedirectURI:  "http://testclient/",
-			ResponseType: "token",
-			IDPID:        "testidp",
-			Scope:        []string{"scope:1", "thisisnoscope"},
-			Validate: func(r *http.Response) {
-				expectErrorResponse(
-					"invalid scope", t, r, "invalid_scope", "invalid scope: thisisnoscope",
-				)
-			},
-		},
-		// Missing idp_id
-		&testAuthzRequest{
-			ClientID:     "testclient1",
-			RedirectURI:  "http://testclient/",
-			ResponseType: "token",
-			Validate: func(r *http.Response) {
-				expectErrorResponse(
-					"missing idp_id", t, r, "invalid_request", "idp_id missing",
-				)
-			},
-		},
-		// Unknown idp_id
-		&testAuthzRequest{
-			ClientID:     "testclient1",
-			RedirectURI:  "http://testclient/",
-			ResponseType: "token",
-			IDPID:        "invalid",
-			Validate: func(r *http.Response) {
-				expectErrorResponse(
-					"unknown idp_id", t, r, "invalid_request", "unknown idp_id",
-				)
-			},
-		},
-		// Successful request
-		&testAuthzRequest{
-			ClientID:     "testclient1",
-			RedirectURI:  "http://testclient/wildcard/anything",
-			ResponseType: "token",
-			IDPID:        "testidp",
-			Validate: func(r *http.Response) {
-				if r.StatusCode != 303 {
-					t.Fatalf(
-						"valid request: Unexpected response (expected 303, got %d)",
-						r.StatusCode,
-					)
-				}
-			},
-		},
-	}
-	handler := testHandler("test")
-	for _, test := range tests {
-		test.Do(handler)
-	}
-}
-
+// The following tests verify the results of the callback:
 func TestEmptyCallbackRequest(t *testing.T) {
 	r := httptest.NewRequest("GET", "http://testserver/oauth2/callback/testidp", nil)
 	w := httptest.NewRecorder()
@@ -195,7 +245,6 @@ func TestEmptyCallbackRequest(t *testing.T) {
 	resp := w.Result()
 	expectBadRequest("empty callback", t, resp, "Can't relate callback to authorization request\n")
 }
-
 func TestInvalidCallbackToken(t *testing.T) {
 	r := httptest.NewRequest("GET", "http://testserver/oauth2/callback/testidp?token=test", nil)
 	w := httptest.NewRecorder()
@@ -204,18 +253,21 @@ func TestInvalidCallbackToken(t *testing.T) {
 	resp := w.Result()
 	expectBadRequest("invalid callback token", t, resp, "Can't relate callback to authorization request\n")
 }
-
 func TestValidCallbackToken(t *testing.T) {
-	verifyCallbackToken(t, "http://testclient/")
-	verifyCallbackToken(t, "http://testclient/specific/url")
-	verifyCallbackToken(t, "http://testclient/wildcard/*")
-	verifyCallbackToken(t, "http://testclient/wildcard/anything")
-	verifyCallbackToken(t, "http://testclient/wildcard/anything/12345")
+	// Only test valid callback with valid redirect URIs using testclient_wildcard_redirect
+	// Invalid redirects are caught before callback, i.e. at first authz request
+	// which is verified in TestAuthorizationHandler.
+	verifyCallbackToken(t, "http://testurl/")
+	verifyCallbackToken(t, "https://testurl/specific/url")
+	verifyCallbackToken(t, "http://testurl/wildcard/*")
+	verifyCallbackToken(t, "http://testurl/wildcard/anything")
+	verifyCallbackToken(t, "http://testurl/wildcard/anything/12345")
 }
-func verifyCallbackToken(t *testing.T, redirectUri string) {
+
+func verifyCallbackToken(t *testing.T, redirectURI string) {
 	handler := testHandler("test")
 	// First, make a valid authz request to get a valid token
-	callback := validCallbackURL(t, handler, redirectUri)
+	callback := validCallbackURL(t, handler, redirectURI)
 	// Now make the valid callback request
 	callbackReq := httptest.NewRequest("GET", callback, nil)
 	w := httptest.NewRecorder()
@@ -245,11 +297,11 @@ func verifyCallbackToken(t *testing.T, redirectUri string) {
 	}
 }
 
-func validCallbackURL(t *testing.T, handler http.Handler, redirectUri string) string {
+func validCallbackURL(t *testing.T, handler http.Handler, redirectURI string) string {
 	authzReq := httptest.NewRequest("GET", "http://test/oauth2/authorize", nil)
 	q := authzReq.URL.Query()
-	q.Set("client_id", "testclient1")
-	q.Set("redirect_uri", redirectUri)
+	q.Set("client_id", "testclient_wildcard_redirect")
+	q.Set("redirect_uri", redirectURI)
 	q.Set("response_type", "token")
 	q.Set("state", "state")
 	q.Set("scope", "scope:1 scope:2 scope:3")
@@ -276,50 +328,6 @@ func validCallbackURL(t *testing.T, handler http.Handler, redirectUri string) st
 	q.Set("uid", "user:1")
 	u.RawQuery = q.Encode()
 	return u.String()
-}
-
-func testHandler(tokenSecret string) http.Handler {
-	// Base URL
-	baseURL := "http://test/"
-
-	// OPTIONS
-	var options []Option
-	// IDP with two users
-	idp := &testIDP{
-		BaseURL: baseURL,
-		Users: []*User{
-			&User{UID: "user:1"},
-			&User{UID: "user:2"},
-		},
-	}
-	options = append(options, IDProvider(idp))
-	// Clients
-	clients := testClientMap{
-		&Client{
-			ID:        "testclient1",
-			Redirects: []string{"http://testclient/", "http://testclient/wildcard/*", "http://testclient/specific/url"},
-			GrantType: "token",
-		},
-		&Client{
-			ID:        "testclient2",
-			Redirects: []string{"http://testclient2/a", ":"},
-			GrantType: "token",
-		},
-	}
-	options = append(options, Clients(clients))
-	// Authorization provider
-	authz := newTestAuthz(map[string][]string{
-		"user:1": []string{"scope:1", "scope:2"},
-		"user:2": []string{"scope:2", "scope:3"},
-	})
-	options = append(options, AuthzProvider(authz))
-	var jwks = `
-		{ "keys": [
-			{ "kty": "EC", "key_ops": ["sign"], "kid": "1", "crv": "P-256", "x": "g9IULlEyYGp3i2IZ1STiuDQ0rcrt3r3o-01f7_wOM_o=", "y": "8QfpzSUvN4UAI4PliUXpeOv8RwLU8P8qLXqhTCc4w1M=", "d": "dIz2ALAunAxB5ajQVx3fAdbttNX4WazEyvXLyi6BFBc=" }
-		]}
-	`
-	handler, _ := Handler(baseURL, jwks, options...)
-	return handler
 }
 
 ///////
