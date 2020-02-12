@@ -207,7 +207,7 @@ func newGripIDP(tenantID string, clientID string, clientSecret string, oauthBase
 	userInfoURL := fmt.Sprintf(gripUserInfoURL, tenantID)
 	return &gripIDP{
 		clientID, clientSecret, oauthBaseURL, authURL, tokenURL, userInfoURL,
-		roles, &http.Client{Timeout: 10 * time.Second},
+		roles, &http.Client{Timeout: 30 * time.Second},
 	}
 }
 
@@ -377,6 +377,12 @@ func (g *gripIDP) AuthnCallback(r *http.Request) (string, *oauth2.User, error) {
 }
 
 func (g *gripIDP) authzData(authzCode string) (*gripAuthzData, error) {
+	// Create context logger
+	logFields := log.Fields{
+		"type": "authzData request",
+	}
+	logger := log.WithFields(logFields)
+
 	// Create token request
 	data := url.Values{}
 	data.Set("code", authzCode)
@@ -386,6 +392,7 @@ func (g *gripIDP) authzData(authzCode string) (*gripAuthzData, error) {
 		"POST", g.tokenURL, strings.NewReader(data.Encode()),
 	)
 	if err != nil {
+		logger.Warnf("Error NewRequest")
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -394,6 +401,7 @@ func (g *gripIDP) authzData(authzCode string) (*gripAuthzData, error) {
 	// Get token
 	resp, err := g.client.Do(req)
 	if err != nil {
+		logger.Warnf("Error client.Do")
 		return nil, err
 	}
 
