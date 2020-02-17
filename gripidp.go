@@ -207,7 +207,7 @@ func newGripIDP(tenantID string, clientID string, clientSecret string, oauthBase
 	userInfoURL := fmt.Sprintf(gripUserInfoURL, tenantID)
 	return &gripIDP{
 		clientID, clientSecret, oauthBaseURL, authURL, tokenURL, userInfoURL,
-		roles, &http.Client{Timeout: 30 * time.Second},
+		roles, &http.Client{Timeout: 10 * time.Second},
 	}
 }
 
